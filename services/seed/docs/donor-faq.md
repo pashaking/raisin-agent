@@ -1,0 +1,3 @@
+# Donor FAQ (platform)
+
+Why was my donation declined? Most declines come from the card issuer, for example insufficient funds or an expired card. Try another payment method or contact your bank. Will I get a tax receipt? Yes, for approved donations of CAD 20 or more, by email within 24 hours. Can I donate monthly? Yes, choose a recurring gift on the donation form. How do I update my card? Use the link in your receipt email or contact the charity. Is my payment information stored by the charity? No. Card data is handled by the payment gateway; the charity sees only the result and the last four digits.

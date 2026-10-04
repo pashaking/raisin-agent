@@ -1,0 +1,2 @@
+### Donor Privacy Policy
+The Foundation respects the privacy of its donors and will collect, use, store, and disclose donor information only for legitimate fundraising, administrative, legal, and reporting purposes. Donor information will not be sold, rented, or exchanged with third parties for marketing purposes without consent, and access to donor records will be limited to authorized personnel and service providers who require the information to perform their responsibilities.

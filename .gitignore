@@ -1,0 +1,7 @@
+.env
+observability/siem/*.jsonl
+__pycache__/
+*.pyc
+policy/data/registry.json
+.gstack/
+.DS_Store

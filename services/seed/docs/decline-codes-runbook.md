@@ -1,0 +1,3 @@
+# Decline codes runbook (platform)
+
+When a donation is declined, the payment gateway returns an issuer response code. Common codes: 05 do not honor (issuer refused without a reason; donor should contact their bank); 14 invalid card number (typo in the card number); 51 insufficient funds (the account did not have enough balance or available credit at the time of the charge); 54 expired card; 57 transaction not permitted to cardholder. For 51 insufficient funds, suggest the donor retry later or use another payment method. A decline is not a fraud signal by itself; the fraud score on the transaction record is computed separately. Never share the raw issuer code with the donor; use the plain-language category.

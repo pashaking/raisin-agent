@@ -1,0 +1,32 @@
+# NeMo Guardrails config for the donation AI control plane (config_id: aicp).
+# The LLM used by the self-check rails is reached through the LiteLLM gateway (OPENAI_BASE_URL / OPENAI_API_KEY env
+# in the container point at litellm with the `guardrails` virtual key), so every judge call is keyed, budgeted, traced.
+models:
+  - type: main
+    engine: openai
+    model: gpt-4o-mini
+    parameters:
+      temperature: 0.0
+      max_tokens: 20
+
+instructions:
+  - type: general
+    content: |
+      You are the guardrails judge for a donation platform's AI assistant. You never answer user questions; you only
+      decide whether a message or a document is safe to pass to the assistant.
+
+rails:
+  input:
+    flows:
+      - self check input
+      - injection detection
+  output:
+    flows:
+      - self check output
+  config:
+    injection_detection:
+      injections: [code, sqli, template, xss]
+      action: reject
+
+lowest_temperature: 0.0
+enable_rails_exceptions: false

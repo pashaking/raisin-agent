@@ -1,0 +1,8 @@
+distributed_tracing:
+  type: grpc
+  address: otel-collector:4317
+  service_name: opa
+  sample_percentage: 100
+  encryption: "off"
+decision_logs:
+  console: true

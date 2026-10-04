@@ -1,0 +1,67 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+  # F14 backstop (belt to LiteLLM's turn_off_message_logging braces): whatever any gateway version exports, no message
+  # content leaves the collector. Runtime attributes input.value / output.value / tool.parameters are untouched: they are
+  # gated in code by DEBUG_TRACE_CONTENT and are the one sanctioned content channel (Phoenix playback).
+  filter/drop_raw_gateway_span:
+    error_mode: ignore
+    traces:
+      span:
+        - 'name == "raw_gen_ai_request"'   # LiteLLM's raw provider echo: request params, messages, choices, embedding inputs
+  # LiteLLM's service-level housekeeping spans (its own DB writes, auth, router bookkeeping). All are leaf children of
+  # `Received Proxy Server Request`, so dropping them orphans nothing; `Received Proxy Server Request` and `litellm_request`
+  # (model, key, tokens, cost) stay. Without this they are ~60% of every trace and every one is kind UNKNOWN in Phoenix.
+  filter/drop_gateway_housekeeping:
+    error_mode: ignore
+    traces:
+      span:
+        - 'resource.attributes["service.name"] == "litellm" and (name == "postgres" or name == "auth" or name == "router" or name == "proxy_pre_call" or name == "batch_write_to_db" or name == "self" or name == "list_keys" or name == "/team/list" or name == "/v2/team/list")'
+  # ASGI `... http send` / `... http receive` sub-spans (leaf spans under every FastAPI server span). The Python services
+  # already exclude them in code (`instrument_fastapi(..., exclude_spans=["receive", "send"])`); this catches
+  # nemo-guardrails, which runs under `opentelemetry-instrument` and has no env switch for it.
+  filter/drop_asgi_subspans:
+    error_mode: ignore
+    traces:
+      span:
+        - 'IsMatch(name, " http (send|receive)$")'
+  attributes/no_message_content:
+    actions:
+      - { pattern: '^gen_ai\.(input|output)\.messages$', action: delete }            # OTel GenAI semconv message lists
+      - { pattern: '^gen_ai\.(prompt|completion)\.\d+\.', action: delete }        # legacy numbered prompt/completion parts
+      - { pattern: '^llm\.(input|output)_messages', action: delete }                # OpenInference message lists
+      - { pattern: '^llm\.[^.]+\.(messages|choices|input|data)$', action: delete }  # llm.<provider>.* raw echo
+  # The filter processor DROPS spans matching its conditions, so keep-only is expressed as "not (...)".
+  filter/security:
+    error_mode: ignore
+    traces:
+      span:
+        - 'not (attributes["policy.result"] == "deny" or attributes["guardrail.verdict"] == "block" or attributes["guardrail.verdict"] == "flagged")'
+
+exporters:
+  otlp_grpc/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  otlp_http/phoenix:
+    endpoint: http://phoenix:6006
+  file/siem:
+    path: /siem/security-events.jsonl
+
+service:
+  pipelines:
+    traces/all:
+      receivers: [otlp]
+      processors: [filter/drop_raw_gateway_span, filter/drop_gateway_housekeeping, filter/drop_asgi_subspans, attributes/no_message_content, batch]
+      exporters: [otlp_grpc/jaeger, otlp_http/phoenix]
+    traces/siem:
+      receivers: [otlp]
+      processors: [filter/security, filter/drop_raw_gateway_span, filter/drop_gateway_housekeeping, filter/drop_asgi_subspans, attributes/no_message_content, batch]
+      exporters: [file/siem]

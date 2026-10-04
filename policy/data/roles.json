@@ -1,0 +1,43 @@
+{
+  "roles": {
+    "Finance": {
+      "models": [
+        "claude-sonnet",
+        "gpt-4o-mini"
+      ],
+      "tools": [
+        "get_transaction_analysis",
+        "get_donation",
+        "list_transactions",
+        "get_tenant_donation_summary",
+        "get_donor_profile",
+        "find_donor",
+        "search_kb"
+      ],
+      "classifications": [
+        "platform",
+        "tenant-internal"
+      ]
+    },
+    "Donor": {
+      "models": [
+        "gpt-4o-mini"
+      ],
+      "tools": [
+        "search_kb",
+        "get_my_donations"
+      ],
+      "classifications": [
+        "platform"
+      ]
+    },
+    "Participant": {
+      "models": [
+        "claude-sonnet",
+        "gpt-4o-mini"
+      ],
+      "tools": [],
+      "classifications": []
+    }
+  }
+}

@@ -1,0 +1,3 @@
+# Tax receipt policy (platform)
+
+Canadian charities issue official donation receipts for gifts of CAD 20 or more, unless the charity configured a lower threshold. Receipts are generated after the payment gateway approves the transaction and are emailed to the donor within 24 hours. A receipt can be reissued by a charity administrator from the donation record. Declined or refunded donations never receive a receipt. Receipts show the charity's registration number, the donation date, the eligible amount, and the donor name and address supplied on the form. Support staff must verify the requester's identity before resending a receipt.

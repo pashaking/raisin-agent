@@ -1,0 +1,3 @@
+# Refund policy (platform)
+
+Donations are final once the payment gateway returns an approval. A charity administrator may issue a refund within 30 days when the donor made a duplicate donation, entered the wrong amount, or was charged after the campaign closed. Refunds are issued to the original payment method only. Tax receipts issued for a refunded donation are voided automatically. Refund requests older than 30 days require the charity's finance lead and Raisin support to approve jointly. AI assistants may explain this policy but must never initiate a refund; refunds are performed by a human administrator in the admin console.

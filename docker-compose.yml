@@ -1,0 +1,318 @@
+name: aicp
+
+# Donation AI Control Plane POC. Design: ../02_Donation_AI_Control_Plane_POC_Design.md
+# Host ports are offset (14xxx/15xxx/16xxx/18xxx) because another local stack binds 5432/8080/8181.
+# Diagram-01 mapping:
+#   Identity + Application APIs + Backend/RDS  -> raisin-api (+ postgres)
+#   Payment gateway (never AI)                 -> payment-gateway
+#   AI Gateway                                 -> litellm (routing, keys, budgets) + agent-runtime (tool loop, PEP)
+#   Policy Engine                              -> opa
+#   Guardrails Runtime                         -> guardrails (orchestrator) -> nemo-guardrails (self-check rails), injection classifier, moderation; presidio-analyzer, presidio-anonymizer
+#   AI Registry                                -> ai_registry table -> policy/data/registry.json -> OPA data
+#   AI Observability                           -> otel-collector -> jaeger + phoenix + siem file
+
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_RESOURCE_ATTRIBUTES: openinference.project.name=ai-control-plane-poc
+
+x-py-health: &py-health
+  interval: 10s
+  timeout: 5s
+  retries: 30
+  start_period: 20s
+
+services:
+  # ---------------- data + observability ----------------
+  postgres:
+    image: pgvector/pgvector:${PGVECTOR_TAG:-0.8.6-pg16-trixie}
+    environment:
+      POSTGRES_USER: poc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-poc}
+      POSTGRES_DB: postgres
+    ports: ["15432:5432"]
+    volumes:
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poc -d litellm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_TAG:-0.160.0}
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+      - ./observability/siem:/siem
+    ports: ["14317:4317", "14318:4318"]
+    depends_on: [jaeger, phoenix]
+
+  jaeger:
+    image: jaegertracing/jaeger:${JAEGER_TAG:-2.20.0}
+    ports: ["16686:16686"]
+
+  phoenix:
+    image: arizephoenix/phoenix:${PHOENIX_TAG:-version-20.16.0}
+    # Working dir must NOT be /phoenix: the image keeps its own venv at /phoenix/.venv (PYTHONPATH), so a volume mounted
+    # there shadows every image upgrade with the venv copied at first start (20.8.0 kept running under a 20.11.0 tag).
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+    ports: ["16006:6006"]
+    volumes:
+      - phoenixdata:/mnt/data
+
+  # ---------------- AI gateway ----------------
+  litellm:
+    image: ghcr.io/berriai/litellm:${LITELLM_TAG:-v1.100.0}
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY}
+      DATABASE_URL: postgresql://poc:${POSTGRES_PASSWORD:-poc}@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+      STORE_PROMPTS_IN_SPEND_LOGS: "True"   # moot since F14: turn_off_message_logging in litellm-config.yaml redacts prompts in the spend log too
+      OTEL_EXPORTER: otlp_http
+      OTEL_ENDPOINT: http://otel-collector:4318/v1/traces
+      OTEL_SERVICE_NAME: litellm
+      OTEL_RESOURCE_ATTRIBUTES: openinference.project.name=ai-control-plane-poc
+    volumes:
+      - ./gateway/litellm-config.yaml:/app/config.yaml:ro
+    ports: ["14000:4000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      otel-collector: { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:4000/health/liveliness')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  agent-runtime:
+    build: { context: ./services, dockerfile: agent-runtime/Dockerfile }
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: agent-runtime
+      LITELLM_BASE_URL: http://litellm:4000
+      OPA_URL: http://opa:8181
+      OPA_TOKEN_RUNTIME: ${OPA_TOKEN_RUNTIME}
+      GUARDRAILS_URL: http://guardrails:8000
+      GUARDRAILS_AUTH_TOKEN: ${GUARDRAILS_AUTH_TOKEN}
+      PRESIDIO_ANALYZER_URL: http://presidio-analyzer:3000
+      PRESIDIO_ANONYMIZER_URL: http://presidio-anonymizer:3000
+      RAISIN_API_URL: http://raisin-api:8080
+      RUNTIME_SERVICE_TOKEN: ${RUNTIME_SERVICE_TOKEN}
+      KB_DATABASE_URL: postgresql://poc:${POSTGRES_PASSWORD:-poc}@postgres:5432/kb
+      LITELLM_KEY_TENANT_A_FINANCE: ${LITELLM_KEY_TENANT_A_FINANCE}
+      LITELLM_KEY_TENANT_B_FINANCE: ${LITELLM_KEY_TENANT_B_FINANCE}
+      LITELLM_KEY_TENANT_C_FINANCE: ${LITELLM_KEY_TENANT_C_FINANCE}
+      LITELLM_KEY_STORY_GENERATOR: ${LITELLM_KEY_STORY_GENERATOR}
+      DEBUG_TRACE_CONTENT: ${DEBUG_TRACE_CONTENT:-off}   # on = full prompts/results in spans (local demo only)
+      DEBUG_PANEL: ${DEBUG_PANEL:-off}                   # on = policy/tool/guardrail detail in API responses (console demo)
+    ports: ["18090:8090"]
+    depends_on:
+      litellm: { condition: service_healthy }
+      raisin-api: { condition: service_healthy }
+      opa: { condition: service_started }
+    healthcheck:
+      <<: *py-health
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:8090/health')\""]
+
+  # ---------------- policy engine ----------------
+  opa:
+    image: openpolicyagent/opa:${OPA_TAG:-1.20.2}
+    # Token-authenticated API (CSO F3): system.authz decides who may do what with OPA itself. Not published on the host;
+    # inspect via `make opa-query INPUT='{...}'` (runs inside agent-runtime with its token) or `make opa-data PATH=roles`.
+    command: ["run", "--server", "--addr", ":8181", "--authentication=token", "--authorization=basic",
+              "--config-file", "/config/opa-config.yaml", "--log-level", "info", "/policies", "/data", "/opa-tokens/tokens.json"]
+    volumes:
+      - ./policy/authz.rego:/policies/authz.rego:ro
+      - ./policy/system_authz.rego:/policies/system_authz.rego:ro
+      - ./policy/opa-config.yaml:/config/opa-config.yaml:ro
+      - ./policy/data:/data
+    configs:
+      - { source: opa_tokens, target: /opa-tokens/tokens.json }
+    depends_on: [otel-collector]
+
+  # ---------------- guardrails runtime ----------------
+  guardrails:
+    build: { context: ./services, dockerfile: guardrails/Dockerfile }
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: guardrails
+      GUARDRAILS_AUTH_TOKEN: ${GUARDRAILS_AUTH_TOKEN}
+      HF_TOKEN: ${HF_TOKEN:-}
+      INJECTION_MODEL: ${INJECTION_MODEL:-meta-llama/Llama-Prompt-Guard-2-86M}
+      INJECTION_FALLBACK_MODEL: ${INJECTION_FALLBACK_MODEL:-protectai/deberta-v3-base-prompt-injection-v2}
+      INJECTION_THRESHOLD: ${INJECTION_THRESHOLD:-0.9}
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_KEY_GUARDRAILS: ${LITELLM_KEY_GUARDRAILS}
+      MODERATION_MODEL: omni-moderation-latest
+      MODERATION_THRESHOLD: ${MODERATION_THRESHOLD:-0.5}
+      NEMO_URL: http://nemo-guardrails:8010
+      NEMO_CONFIG_ID: aicp
+      NEMO_MODEL: gpt-4o-mini
+      RULES_LAYER: ${RULES_LAYER:-off}
+    volumes:
+      - guardrails-cache:/cache
+    ports: ["18000:8000"]
+    depends_on:
+      litellm: { condition: service_healthy }
+      nemo-guardrails: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 300s
+
+  nemo-guardrails:
+    # NVIDIA NeMo Guardrails server: self-check input/output rails + injection detection, judged by gpt-4o-mini
+    # through the LiteLLM gateway (guardrails virtual key). Called only by the guardrails service (/v1/checks).
+    build: { context: ./services, dockerfile: nemo-guardrails/Dockerfile }
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: nemo-guardrails
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      OTEL_PYTHON_FASTAPI_EXCLUDED_URLS: v1/health,v1/rails/configs
+      OPENAI_API_KEY: ${LITELLM_KEY_GUARDRAILS}
+      MAIN_MODEL_ENGINE: openai
+      MAIN_MODEL_BASE_URL: http://litellm:4000/v1
+      DEFAULT_CONFIG_ID: aicp
+    volumes:
+      - ./services/nemo-guardrails/config:/config:ro   # edit prompts/Colang, then `docker compose restart nemo-guardrails`
+    ports: ["18010:8010"]
+    depends_on:
+      litellm: { condition: service_healthy }
+    deploy:
+      resources:
+        limits:
+          memory: 1500m
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:8010/v1/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:${PRESIDIO_TAG:-latest}
+    ports: ["15001:3000"]
+    deploy:
+      resources:
+        limits:
+          memory: 1500m
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:3000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:${PRESIDIO_TAG:-latest}
+    ports: ["15002:3000"]
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:3000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # ---------------- application + payment ----------------
+  payment-gateway:
+    build: { context: ./services, dockerfile: payment-gateway/Dockerfile }
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: payment-gateway
+    ports: ["18070:8070"]
+    depends_on: [otel-collector]
+    healthcheck:
+      <<: *py-health
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:8070/health')\""]
+
+  raisin-api:
+    build: { context: ./services, dockerfile: raisin-api/Dockerfile }
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: raisin-api
+      RAISIN_DATABASE_URL: postgresql://poc:${POSTGRES_PASSWORD:-poc}@postgres:5432/raisin
+      AGENT_RUNTIME_URL: http://agent-runtime:8090
+      PAYMENT_GATEWAY_URL: http://payment-gateway:8070
+      RUNTIME_SERVICE_TOKEN: ${RUNTIME_SERVICE_TOKEN}
+      ROLES_PATH: /policy-data/roles.json   # same roles.json OPA uses; raisin-api re-checks role per endpoint (defense in depth)
+    volumes:
+      - ./policy/data:/policy-data:ro
+    ports: ["18080:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      payment-gateway: { condition: service_started }
+    healthcheck:
+      <<: *py-health
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:8080/health')\""]
+
+  # ---------------- one-shot jobs ----------------
+  seed:
+    build: { context: ./services, dockerfile: seed/Dockerfile }
+    profiles: ["seed"]
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: seed
+      RAISIN_DATABASE_URL: postgresql://poc:${POSTGRES_PASSWORD:-poc}@postgres:5432/raisin
+      KB_DATABASE_URL: postgresql://poc:${POSTGRES_PASSWORD:-poc}@postgres:5432/kb
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_KEY_TENANT_A_FINANCE: ${LITELLM_KEY_TENANT_A_FINANCE}
+      LITELLM_KEY_TENANT_B_FINANCE: ${LITELLM_KEY_TENANT_B_FINANCE}
+      LITELLM_KEY_TENANT_C_FINANCE: ${LITELLM_KEY_TENANT_C_FINANCE}
+      LITELLM_KEY_STORY_GENERATOR: ${LITELLM_KEY_STORY_GENERATOR}
+      LITELLM_KEY_SEED_INDEXER: ${LITELLM_KEY_SEED_INDEXER}
+      LITELLM_KEY_GUARDRAILS: ${LITELLM_KEY_GUARDRAILS}
+      OPA_URL: http://opa:8181
+      OPA_TOKEN_SEED: ${OPA_TOKEN_SEED}
+      REGISTRY_PATH: /policy-data/registry.json
+    volumes:
+      - ./policy/data:/policy-data
+    depends_on:
+      postgres: { condition: service_healthy }
+      litellm: { condition: service_healthy }
+      opa: { condition: service_started }
+
+  gate:
+    build: { context: ./services, dockerfile: agent-runtime/Dockerfile }
+    profiles: ["gate"]
+    command: ["python", "gate.py"]
+    environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: agent-runtime
+      LITELLM_BASE_URL: http://litellm:4000
+      LITELLM_KEY: ${LITELLM_MASTER_KEY}
+      GATE_MODEL: ${GATE_MODEL:-gpt-4o-mini}
+    depends_on:
+      litellm: { condition: service_healthy }
+
+configs:
+  opa_tokens:
+    # rendered from .env at `docker compose up`; never a file in the repo
+    content: |
+      {"opa_tokens": {"runtime": "${OPA_TOKEN_RUNTIME}", "seed": "${OPA_TOKEN_SEED}"}}
+
+volumes:
+  pgdata:
+  phoenixdata:
+  guardrails-cache:

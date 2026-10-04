@@ -1,0 +1,47 @@
+# LiteLLM proxy config. Routing + virtual keys + budgets + OTel callback.
+model_list:
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: claude-sonnet
+    litellm_params:
+      model: openrouter/anthropic/claude-sonnet-4.5
+      api_key: os.environ/OPENROUTER_API_KEY
+      api_base: https://openrouter.ai/api/v1
+
+  # Anthropic direct swap (design premise: one-line change). Requires ANTHROPIC_API_KEY with credit.
+  # - model_name: claude-sonnet
+  #   litellm_params:
+  #     model: anthropic/claude-sonnet-4-5
+  #     api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Bedrock swap. Requires AWS creds + model access.
+  # - model_name: claude-sonnet
+  #   litellm_params:
+  #     model: bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0
+  #     aws_region_name: ca-central-1
+
+  # Output moderation for the guardrails service (keyed, budgeted, traced like any model call).
+  - model_name: omni-moderation-latest
+    litellm_params:
+      model: openai/omni-moderation-latest
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
+litellm_settings:
+  callbacks: ["otel"]
+  drop_params: true
+  # F14: the otel callback exported full prompts/completions (gen_ai.input.messages, raw_gen_ai_request llm.<provider>.*)
+  # regardless of the runtime's DEBUG_TRACE_CONTENT. Kill-switch: NO_CONTENT capture mode. The runtime's gated chat span
+  # is the only prompt channel (Phoenix playback). Also redacts prompts in LiteLLM_SpendLogs.
+  turn_off_message_logging: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
