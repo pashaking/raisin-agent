@@ -5,3 +5,4 @@ __pycache__/
 policy/data/registry.json
 .gstack/
 .DS_Store
+test-output/

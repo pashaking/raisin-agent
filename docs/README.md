@@ -16,6 +16,8 @@ Jaeger traces, model `gpt-4o-mini`, temperature 0).
 | See every way a request can be stopped and what the caller, the model and the SIEM each see | [04-failure-paths.md](04-failure-paths.md) |
 | Look up a span name or attribute, or the SIEM filter | [05-observability-reference.md](05-observability-reference.md) |
 | Understand one container: purpose, config, endpoints, spans, what happens when it is down | [containers/README.md](containers/README.md) |
+| Test every container on its own with curl, with input and expected output recorded to disk | [07-container-cli-testing.md](07-container-cli-testing.md) |
+| Review the agent against the OWASP Agentic Top 10, category by category | [08-security-review.md](08-security-review.md) |
 | Run, test, tune, inspect (commands) | [../RUNBOOK.md](../RUNBOOK.md) |
 | Present the whole thing: design, architecture, infrastructure, request flow, failure map, observability, production-readiness gaps (slide-style page) | [06-poc-presentation.html](06-poc-presentation.html) |
 

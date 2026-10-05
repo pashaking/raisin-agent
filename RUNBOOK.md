@@ -154,7 +154,7 @@ Rails and judge prompts: `services/nemo-guardrails/config/aicp/config.yml` and `
 make registry-flip TOOL=get_donation APPROVED=false               # push to OPA, no restart
 make demo S=1                                                    # tool now absent from allowed_tools
 make registry-reset                                              # restore file + push
-make opa-test                                                    # 22 rego unit tests (authz + OPA API authz)
+make opa-test                                                    # 25 rego unit tests (authz + OPA API authz)
 ```
 
 Ask OPA directly (same input shape the runtime sends). OPA is token-authenticated and not published on the host, so the
@@ -179,6 +179,16 @@ make test-tools         # data tools end to end: raisin-api checks (tenant + rol
                         # runtime tool-loop checks on gpt-4o-mini (need DEBUG_PANEL=on; skipped with a note otherwise)
 make test-fail-closed   # same, then stops opa, guardrails, nemo-guardrails, presidio-analyzer, presidio-anonymizer one at a time and
                         # asserts the runtime rejects requests (guardrail.verdict=unavailable / policy unavailable) instead of passing them
+python3 scripts/test_limits.py   # agent hard-limit unit tests (Phase 6): loop-pattern detector + config sanity, no stack needed
+python3 scripts/test_memory.py   # agent memory validation unit tests (Phase 8): key/value gates for save_task_state, no stack needed
+python3 scripts/test_approvals.py # approval workflow assertions (Phase 10): tenant isolation, role gate, approval integrity,
+                        # reject/approve state machine; seeds pending rows via `docker compose exec agent-runtime`, no LLM needed
+make evals              # agent evaluation suite (Phase 12): 14 named scenarios (normal investigation, missing info,
+                        # ambiguous identity, high decline, out-of-scope capability, card testing, no problem found,
+                        # cross-tenant, prompt injection, tool manipulation, RAG poisoning, invalid args, bounded
+                        # multi-step, human-approval-required action) + a metrics report (task completion %, tool
+                        # selection %, OPA rejection %, hallucinated tool %, cross-tenant attempts, human approval
+                        # frequency, avg tool calls/tokens/latency per run). Full metrics need DEBUG_PANEL=on; scripts/evals.py
 ```
 
 Manual fail-closed check:

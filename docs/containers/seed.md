@@ -37,7 +37,16 @@ request traces.
 - PII canary: `canary.donor@pii-canary.test`, `604-555-0199`. Must appear in zero spans (`make test`).
 - Knowledge docs: 4 platform docs, 2 tenant-a (+ 1 poisoned), 2 tenant-b, 1 `internal`. One chunk per doc on purpose so
   the poisoned procedure and its injection paragraph rank together.
-- Registry: `legacy_summarizer` unapproved (OPA test case); `resend_receipt` approved but in no role (always withheld).
+- Registry: `legacy_summarizer` unapproved (OPA test case); `resend_receipt` approved, in Finance's role list, and
+  tagged `action_risk=high` so the tool stage always denies it with `requires_approval` (Phase 10's approval queue
+  is the only path that can run it) — see [opa.md](opa.md#risk-classification). Every other tool is `low` except
+  `get_donor_profile` / `find_donor` (`medium`, identify a donor) and `save_task_state` (`medium`, a write).
+- Memory: `MEMORY_PREFS` seeds one `kind='preference'` row in `kb.agent_memory` for `finance.a@charity-a.test`
+  (`digest_frequency: daily`), read back through `get_user_context` — see
+  [agent-runtime.md](agent-runtime.md#agent-memory-memorypy-phase-8).
+- Approvals: no fixtures -- `kb.approval_requests` starts empty; rows are created only when a model actually calls
+  `resend_receipt` (or, for deterministic testing, `scripts/test_approvals.py` seeds rows directly inside the
+  running container) — see [agent-runtime.md](agent-runtime.md#human-approval-workflow-approvalspy-phase-10).
 
 ### Spans
 

@@ -11,6 +11,7 @@ import os
 import pathlib
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import psycopg
@@ -51,12 +52,43 @@ def schema():
                 c.execute("INSERT INTO donations VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status, donor_id=EXCLUDED.donor_id, amount=EXCLUDED.amount",
                           (did, tenant, donor_id, amount, cur, status))
             for tx in F.TRANSACTIONS:
-                c.execute("INSERT INTO transactions VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO UPDATE SET result=EXCLUDED.result, decline_code=EXCLUDED.decline_code", tx)
+                c.execute("INSERT INTO transactions (id,donation_id,tenant_id,amount,currency,result,decline_code,fraud_score) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) "
+                          "ON CONFLICT (id) DO UPDATE SET result=EXCLUDED.result, decline_code=EXCLUDED.decline_code", tx)
+            # transaction-investigation fixtures (Phase 3): campaigns first (transactions.campaign_id references them),
+            # then campaign-linked transactions with occurred_at computed relative to seed time (minutes_ago).
+            for (cid, tenant, name, status, goal) in F.CAMPAIGNS:
+                c.execute("INSERT INTO campaigns (id,tenant_id,name,status,goal_amount) VALUES (%s,%s,%s,%s,%s) "
+                          "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, status=EXCLUDED.status, goal_amount=EXCLUDED.goal_amount",
+                          (cid, tenant, name, status, goal))
+            c.execute("SELECT setval('campaigns_id_seq', (SELECT MAX(id) FROM campaigns))")
+            def ago(minutes_ago):
+                return datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+
+            # No natural unique key (unlike every other fixture table) and every row here is seed-owned (no tool ever
+            # writes to these two tables) -- idempotent re-seeding truncates and reinserts rather than upserting by id.
+            c.execute("TRUNCATE application_errors, incidents")
+            for (txid, tenant, cid, amount, gateway, result, decline_code, fraud_score, minutes_ago, ip_address) in F.CAMPAIGN_TRANSACTIONS:
+                c.execute("INSERT INTO transactions (id,donation_id,tenant_id,amount,currency,result,decline_code,fraud_score,campaign_id,gateway,occurred_at,ip_address) "
+                          "VALUES (%s,NULL,%s,%s,'CAD',%s,%s,%s,%s,%s,%s,%s) "
+                          "ON CONFLICT (id) DO UPDATE SET result=EXCLUDED.result, decline_code=EXCLUDED.decline_code, "
+                          "fraud_score=EXCLUDED.fraud_score, campaign_id=EXCLUDED.campaign_id, gateway=EXCLUDED.gateway, "
+                          "occurred_at=EXCLUDED.occurred_at, ip_address=EXCLUDED.ip_address",
+                          (txid, tenant, amount, result, decline_code, fraud_score, cid, gateway, ago(minutes_ago), ip_address))
+            for (tenant, service, error_type, message, minutes_ago) in F.APPLICATION_ERRORS:
+                c.execute("INSERT INTO application_errors (tenant_id,service,error_type,message,occurred_at) VALUES (%s,%s,%s,%s,%s)",
+                          (tenant, service, error_type, message, ago(minutes_ago)))
+            for (tenant, title, status, severity, summary, started_ago, resolved_ago) in F.INCIDENTS:
+                c.execute("INSERT INTO incidents (tenant_id,title,status,severity,summary,started_at,resolved_at) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                          (tenant, title, status, severity, summary, ago(started_ago), ago(resolved_ago) if resolved_ago is not None else None))
             for r in F.REGISTRY:
-                c.execute("INSERT INTO ai_registry (kind,name,owner,risk_tier,approved) VALUES (%s,%s,%s,%s,%s) "
-                          "ON CONFLICT (kind,name) DO UPDATE SET owner=EXCLUDED.owner, risk_tier=EXCLUDED.risk_tier", r)
+                c.execute("INSERT INTO ai_registry (kind,name,owner,risk_tier,action_risk,approved) VALUES (%s,%s,%s,%s,%s,%s) "
+                          "ON CONFLICT (kind,name) DO UPDATE SET owner=EXCLUDED.owner, risk_tier=EXCLUDED.risk_tier, action_risk=EXCLUDED.action_risk", r)
         with _pg(KB_DB) as c:
             c.execute(pathlib.Path("kb_schema.sql").read_text())
+            for tenant, user, key, value in F.MEMORY_PREFS:
+                c.execute("INSERT INTO agent_memory (tenant_id,user_id,kind,session_id,key,value) VALUES (%s,%s,'preference','',%s,%s::jsonb) "
+                          "ON CONFLICT (tenant_id,user_id,kind,session_id,key) DO UPDATE SET value=EXCLUDED.value",
+                          (tenant, user, key, json.dumps(value)))
         print("seed.schema ok")
 
 
@@ -114,10 +146,13 @@ def index():
 def registry():
     with tracer.start_as_current_span("seed.registry") as span:
         with _pg(RAISIN_DB) as c:
-            rows = c.execute("SELECT kind, name, owner, risk_tier, approved, version FROM ai_registry ORDER BY kind, name").fetchall()
+            rows = c.execute("SELECT kind, name, owner, risk_tier, action_risk, approved, version FROM ai_registry ORDER BY kind, name").fetchall()
         reg = {"models": {}, "tools": {}, "prompts": {}}
-        for kind, name, owner, tier, approved, version in rows:
-            reg[kind + "s"][name] = {"owner": owner, "risk_tier": tier, "approved": approved, "version": version}
+        for kind, name, owner, tier, action_risk, approved, version in rows:
+            entry = {"owner": owner, "risk_tier": tier, "approved": approved, "version": version}
+            if kind == "tool":
+                entry["action_risk"] = action_risk
+            reg[kind + "s"][name] = entry
         reg["revision"] = hashlib.sha256(json.dumps(reg, sort_keys=True).encode()).hexdigest()[:16]
         REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
         REGISTRY_PATH.write_text(json.dumps({"registry": reg}, indent=2))
@@ -138,7 +173,7 @@ def flip(name: str, approved: str):
 
 def reset():
     with _pg(RAISIN_DB) as c:
-        for kind, name, owner, tier, approved in F.REGISTRY:
+        for kind, name, owner, tier, action_risk, approved in F.REGISTRY:
             c.execute("UPDATE ai_registry SET approved=%s WHERE kind=%s AND name=%s", (approved, kind, name))
     print("seed.reset ok")
     registry()

@@ -99,7 +99,7 @@ caller's JWT (re-filters by tenant in SQL) → minimized JSON. The tenant is nev
 | `get_donor_profile(donor_id)` | Finance | donor id, donation count, total approved, last status | no name, email or phone in any form |
 | `find_donor(email)` | Finance | same as profile | the model passes `<EMAIL_ADDRESS_1>`; the runtime resolves it in-process; `raisin-api` takes the email in a POST body so it never lands in an `http.url` span attribute |
 | `get_my_donations()` | Donor | the caller's own donations | resource owner = JWT subject |
-| `resend_receipt` | none | | registered and approved, in no role: always withheld |
+| `resend_receipt` | Finance | pending approval id, not a result | the one `action_risk=high` write action (Phase 10): OPA always denies the tool call with `requires_approval` and the runtime opens an approval request instead of running it; see [opa.md](docs/containers/opa.md#risk-classification). Six more `low`/`medium` controlled actions (Phase 14 -- `restart_worker`, `clear_failed_job`, `block_ip_temporarily`, `create_incident`, `send_notification`, `collect_diagnostic_bundle`) auto-execute instead, see [agent-runtime.md](docs/containers/agent-runtime.md#tool-layer-toolspy) |
 
 Design points worth showing:
 
@@ -137,6 +137,7 @@ make demo                        # scenarios 0-9, prints Jaeger/Phoenix links pe
 make test                        # opa test + PCI-scope + PII-canary + gateway-content trace assertions + data-tool API assertions
 make test-tools                  # data tools end to end incl. NeMo rail regression, response envelope, runtime tool loop (gpt-4o-mini; tool-loop checks need DEBUG_PANEL=on)
 make test-fail-closed            # + stop/start opa, guardrails, nemo-guardrails, presidio-analyzer, presidio-anonymizer
+make evals                       # agent evaluation suite: 14 named scenarios + metrics report (gpt-4o-mini; full metrics need DEBUG_PANEL=on)
 DEMO_MODEL=gpt-4o-mini make demo # force the model while OpenRouter is unavailable
 make demo S="1 3"                # subset
 ```
@@ -200,7 +201,7 @@ observability/               otel-collector.yaml (fan-out + SIEM filter), siem/s
 postgres/initdb/             creates litellm, raisin, kb databases (+ pgvector)
 services/common/             otel_setup.py, base requirements
 services/raisin-api/         identity route + JWKS, /donate, /assistant, /story, system-of-record API (donations, transactions, donors, summary, me), internal PIPs
-services/agent-runtime/      tool loop, policy PEP, guardrail clients, tools (8 handlers, placeholder resolution), RAG, gate.py
+services/agent-runtime/      tool loop, policy PEP, guardrail clients, tools (12 handlers, placeholder resolution), memory.py (agent memory), approvals.py (human approval queue), RAG, gate.py
 services/payment-gateway/    stub
 services/seed/               schema, fixtures, docs/, seed.py (all | registry | flip | reset | index)
 scripts/                     demo.py, test_traces.py, test_tools.py, check_gate.py, siem_tail.py

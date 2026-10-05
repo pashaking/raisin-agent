@@ -12,7 +12,28 @@
         "get_tenant_donation_summary",
         "get_donor_profile",
         "find_donor",
-        "search_kb"
+        "search_kb",
+        "get_user_context",
+        "get_session_context",
+        "save_task_state",
+        "resend_receipt",
+        "get_campaign",
+        "get_campaign_statistics",
+        "get_transaction",
+        "search_transactions",
+        "get_transaction_statistics",
+        "compare_transaction_periods",
+        "get_decline_statistics",
+        "get_payment_gateway_statistics",
+        "get_fraud_signals",
+        "get_application_errors",
+        "get_incident_history",
+        "restart_worker",
+        "clear_failed_job",
+        "block_ip_temporarily",
+        "create_incident",
+        "send_notification",
+        "collect_diagnostic_bundle"
       ],
       "classifications": [
         "platform",
@@ -25,7 +46,10 @@
       ],
       "tools": [
         "search_kb",
-        "get_my_donations"
+        "get_my_donations",
+        "get_user_context",
+        "get_session_context",
+        "save_task_state"
       ],
       "classifications": [
         "platform"

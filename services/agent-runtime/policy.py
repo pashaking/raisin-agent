@@ -40,6 +40,8 @@ def decide(stage: str, claims: dict, **extra) -> dict:
             span.set_attribute("policy.tools.allowed", d.get("allowed_tools", []))
             span.set_attribute("policy.tools.withheld", d.get("withheld_tools", []))
             span.set_attribute("policy.model", d.get("model", ""))
+        if stage in ("tool", "approval_execute") and d.get("risk"):
+            span.set_attribute("policy.tool.risk", d["risk"])
         if result == "deny":
             span.add_event("policy.deny", {"stage": stage, "reason": d.get("reason", ""), "tool": extra.get("tool", ""), "model": extra.get("model", "") or ""})
         return d

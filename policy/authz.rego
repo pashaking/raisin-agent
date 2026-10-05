@@ -72,17 +72,32 @@ model_deny_reason := "unknown_role" if {
 } else := "denied"
 
 # ---- tool stage: per-call ABAC, resource tenant must equal the caller's tenant ---------------
+# Risk classification (Phase 9): every tool in the registry carries an action_risk (low|medium|high|critical). low
+# and medium execute automatically once role/approval/tenant checks pass; high and critical always deny here with a
+# distinct reason -- this stage never grants them, by design. Phase 10's approval_execute stage below is the only
+# path that can, and only after a human decision on an already-created, immutable approval request.
+action_risk := r if {
+	r := data.registry.tools[input.tool].action_risk
+	r != null
+} else := "unknown"
+
+requires_approval if {
+	action_risk in {"high", "critical"}
+}
+
 tool_allowed if {
 	input.stage == "tool"
 	input.tool in role_cfg.tools
 	input.tool in approved_tools
 	input.resource.tenant_id == input.subject.tenant_id
+	not requires_approval
 }
 
 decision := {
 	"allow": true,
 	"stage": "tool",
 	"tool": input.tool,
+	"risk": action_risk,
 	"reason": "ok",
 	"registry_revision": data.registry.revision,
 } if {
@@ -93,6 +108,7 @@ decision := {
 	"allow": false,
 	"stage": "tool",
 	"tool": input.tool,
+	"risk": action_risk,
 	"reason": tool_deny_reason,
 	"registry_revision": data.registry.revision,
 } if {
@@ -108,4 +124,54 @@ tool_deny_reason := "unknown_role" if {
 	not input.tool in approved_tools
 } else := "tenant_mismatch" if {
 	input.resource.tenant_id != input.subject.tenant_id
+} else := "requires_approval" if {
+	requires_approval
+} else := "denied"
+
+# ---- approval_execute stage (Phase 10): the one call a human approval decision is allowed to make. Separate from
+# "tool" so a normal tool call can never reach it by accident; the agent runtime calls this stage itself, right
+# before running the exact stored tool/args of an already-pending approval request, never on the agent's own say-so.
+# Still fully re-checked here (role/tenant/risk), not just "the approval row says yes": role or tenant membership
+# can change between request and decision, and this stage must fail closed on either exactly like the tool stage does.
+approval_execute_allowed if {
+	input.stage == "approval_execute"
+	input.tool in role_cfg.tools
+	input.tool in approved_tools
+	input.resource.tenant_id == input.subject.tenant_id
+	requires_approval
+}
+
+decision := {
+	"allow": true,
+	"stage": "approval_execute",
+	"tool": input.tool,
+	"risk": action_risk,
+	"reason": "ok",
+	"registry_revision": data.registry.revision,
+} if {
+	approval_execute_allowed
+}
+
+decision := {
+	"allow": false,
+	"stage": "approval_execute",
+	"tool": input.tool,
+	"risk": action_risk,
+	"reason": approval_deny_reason,
+	"registry_revision": data.registry.revision,
+} if {
+	input.stage == "approval_execute"
+	not approval_execute_allowed
+}
+
+approval_deny_reason := "unknown_role" if {
+	not data.roles[input.subject.role]
+} else := "tool_not_in_role" if {
+	not input.tool in role_cfg.tools
+} else := "unapproved_tool" if {
+	not input.tool in approved_tools
+} else := "tenant_mismatch" if {
+	input.resource.tenant_id != input.subject.tenant_id
+} else := "not_requires_approval" if {
+	not requires_approval
 } else := "denied"

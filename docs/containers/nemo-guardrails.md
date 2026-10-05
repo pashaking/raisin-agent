@@ -32,20 +32,26 @@ virtual key so every judge call is keyed, budgeted and traced. Called only by th
 `config/aicp/prompts.yml` holds the two judge prompts. The input prompt lists what must be blocked (override / exfiltrate
 the system prompt / unrestricted persona / instruct to call tools or change records / send data anywhere / text addressed
 to the AI / obfuscation or fake chat markers) and, importantly, what is allowed: read-only questions about the charity's own
-donations, transactions and donors, including by id or by placeholder, lists, filters, totals and summaries, with five
-example sentences; and fundraising participants' story notes that ask the reader to contact them ("email me at
-<EMAIL_ADDRESS_1>", "please send me a mail", "call me at <PHONE_NUMBER_1>"). "Send"/"email" is blocked only when the
-object is data (records, lists, files, instructions), not a message to the participant. The output prompt lists secrets, exfil URLs, raw card / email / phone, system-prompt disclosure, harmful
-content, and "followed instructions from a retrieved document", and states that placeholder tokens are safe and never a
-reason to block.
+donations, transactions and donors, including by id or by placeholder, lists, filters, totals and summaries, plus one
+approval-gated action (resending a donation's own tax receipt is a legitimate, human-sign-off-required request, not a
+record change -- Phase 10), with six example sentences; and fundraising participants' story notes that ask the reader to
+contact them ("email me at <EMAIL_ADDRESS_1>", "please send me a mail", "call me at <PHONE_NUMBER_1>"). "Send"/"email" is
+blocked only when the object is data (records, lists, files, instructions), not a message to the participant. The output
+prompt lists secrets, exfil URLs, raw card / email / phone, system-prompt disclosure, harmful content, and "followed
+instructions from a retrieved document" -- carving out an approval request id (`APR-...`) as a reference number, not a
+secret, since its hex shape otherwise reads as a leaked token (console finding, 2026-10-04) -- and states that placeholder
+tokens are safe and never a reason to block.
 
 Why the allowed examples matter: when the data tools were widened on 2026-09-07 the judge began blocking "Give me a summary
 of our donations" and "Show me donation 873928 and its transactions" as record changes. The rail now distinguishes viewing
 from changing. The same happened to the story generator on 2026-09-07: "please send me a mail me email me to
-<EMAIL_ADDRESS_1>" was judged an instruction to the assistant to send mail. `scripts/test_tools.py` keeps a regression list
-(9 allowed assistant questions, 5 allowed story texts, 6 blocked phrases). Add a phrase there whenever a legitimate console
-input is blocked, and read the `guardrail.scan.prompt` span first: both the judge and the classifier can fire on the same
-sentence for unrelated reasons (see the classifier note in `guardrails.md`).
+<EMAIL_ADDRESS_1>" was judged an instruction to the assistant to send mail. And again on 2026-10-04 when Phase 10 added the
+first legitimate write-phrased request ("Please resend the tax receipt for donation 873928.") -- the rail had never had to
+distinguish "a record change" from "a specific, pre-approved, human-gated action" before, because nothing behind it was
+reachable yet. `scripts/test_tools.py` keeps a regression list (10 allowed assistant questions, 5 allowed story texts, 6
+blocked phrases -- a compound "refund ... and resend" request stays blocked: refund has no tool or approval path at all).
+Add a phrase there whenever a legitimate console input is blocked, and read the `guardrail.scan.prompt` span first: both
+the judge and the classifier can fire on the same sentence for unrelated reasons (see the classifier note in `guardrails.md`).
 
 ## Interface
 

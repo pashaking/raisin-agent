@@ -10,7 +10,7 @@ the AI registry table). It is the only service that talks to the `raisin` databa
 | Port | 18080 → 8080 |
 | Depends on | `postgres` healthy, `payment-gateway` started |
 | Health | `GET /health` → `{"ok": true}` |
-| Code | `services/raisin-api/app.py` (384 lines), `db.py`, `keys.py`, `ui/index.html` |
+| Code | `services/raisin-api/app.py` (~800 lines), `db.py`, `keys.py`, `ui/index.html` |
 
 ## Configuration
 
@@ -43,7 +43,7 @@ the AI registry table). It is the only service that talks to the `raisin` databa
 
 | Endpoint | Auth | Behaviour |
 |---|---|---|
-| `POST /assistant {question, model?, temperature?}` | Bearer JWT | verifies locally, forwards to `agent-runtime /run` with the same `Authorization` header; copies status code; adds `X-Trace-Id` header and `trace_id` field |
+| `POST /assistant {question, model?, temperature?, session_id?}` | Bearer JWT | verifies locally, forwards to `agent-runtime /run` with the same `Authorization` header; copies status code; adds `X-Trace-Id` header and `trace_id` field |
 | `POST /story {free_text, model?}` | Bearer JWT | same, to `/story` |
 | `GET /ui` | none | static chat console (same origin) |
 
@@ -61,10 +61,49 @@ the JWT tenant in SQL. Four checks; OPA in the runtime is a fifth, independent o
 | `GET /api/donors/{id}/profile` | `get_donor_profile` | same summary shape |
 | `GET /api/summary` | `get_tenant_donation_summary` | counts, totals, `decline_categories`; pending donations excluded |
 | `GET /api/me/donations` | `get_my_donations` | donations joined on `donors.email = JWT sub` within the JWT tenant |
+| `POST /api/donations/{id}/resend-receipt` | `resend_receipt` | `{donation_id, receipt_resent_at}`; no-op status-flip (`UPDATE ... SET receipt_resent_at = now()`) -- no outbound email capability exists anywhere in this POC; 404 `not found` for missing/foreign ids. Called only from `tools.execute_approved`, after a human approval (Phase 10), never from the normal tool-call path -- OPA's tool stage denies `resend_receipt` with `requires_approval` before this is ever reached that way |
+
+Transaction-investigation tool set (implementation plan Phase 3, literal plan tool names). `campaigns`, `application_errors`
+and `incidents` are tenant-scoped, seed-owned tables (`services/seed/fixtures.py` `CAMPAIGNS`/`CAMPAIGN_TRANSACTIONS`/
+`APPLICATION_ERRORS`/`INCIDENTS`); `transactions` gained `campaign_id`, `gateway`, `occurred_at`. All action_risk=low
+(read-only; Phase 1 autonomy is READ+ANALYZE+RECOMMEND only):
+
+| Endpoint | Backing tool | Returns |
+|---|---|---|
+| `GET /api/campaigns/{id}` | `get_campaign` | `{id, name, status, goal_amount}`; 404 for missing/foreign ids |
+| `GET /api/campaigns/{id}/statistics` | `get_campaign_statistics` | transaction aggregates + `decline_categories` for that campaign (all-time) |
+| `GET /api/transactions/{id}` | `get_transaction` | full minimized transaction incl. `gateway`, `campaign_id`, `occurred_at` |
+| `GET /api/transaction-search?result&decline_category&campaign_id&gateway&min_amount&max_amount&start_time&end_time&limit` | `search_transactions` | `list_transactions`'s full-filter sibling (separate route so each keeps its own hardcoded `authorize()` tool name) |
+| `GET /api/transaction-statistics?campaign_id&start_time&end_time&status` | `get_transaction_statistics` | `{transaction_count, successful_count, declined_count, success_rate, total_amount}` -- the plan's Phase 3 example contract verbatim |
+| `GET /api/transaction-comparison?campaign_id&current&previous` | `compare_transaction_periods` | two of the above (`current`/`previous` one of `last_hour`/`previous_hour`/`last_24h`/`previous_24h`) + `success_rate_delta` |
+| `GET /api/decline-statistics?campaign_id&start_time&end_time` | `get_decline_statistics` | `declined_count`, `declined_total`, `decline_categories` |
+| `GET /api/gateway-statistics?campaign_id&start_time&end_time` | `get_payment_gateway_statistics` | per-`gateway` transaction/decline counts and decline rate |
+| `GET /api/fraud-signals?campaign_id&start_time&end_time&min_fraud_score&limit` | `get_fraud_signals` | transactions at/above `min_fraud_score` (default 0.5) + `flagged_count`/`average_fraud_score` |
+| `GET /api/application-errors?service&start_time&end_time&limit` | `get_application_errors` | tenant-scoped app error log, newest first |
+| `GET /api/incidents?status&start_time&end_time&limit` | `get_incident_history` | tenant-scoped incident log, newest first |
+
+Controlled actions (implementation plan Phase 14). `restart_worker`/`clear_failed_job`/`block_ip_temporarily` are
+`action_risk=medium`, the other three `low`; OPA's tool stage auto-executes both tiers like any other tool once
+role/tenant checks pass (graduated autonomy, Phase 9) -- unlike `resend_receipt`/`high`, none of these ever reaches
+the approval workflow. No worker fleet, job queue, WAF or pager exists in this POC, so each is a no-op status-flip,
+audited to `remediation_actions` (`tenant_id, action, params, performed_by, result, created_at`); `create_incident`
+is the one exception with real state -- it inserts into the same `incidents` table `get_incident_history` reads.
+`transactions.ip_address` (nullable, only set on campaign 2's card-testing cluster fixture) is what
+`block_ip_temporarily` acts on, surfaced through `get_fraud_signals`/`get_transaction`/`search_transactions`.
+
+| Endpoint | Backing tool | Returns |
+|---|---|---|
+| `POST /api/workers/restart {worker}` | `restart_worker` | `{worker, restarted, restarted_at}` |
+| `POST /api/jobs/clear {job_id}` | `clear_failed_job` | `{job_id, cleared, cleared_at}` |
+| `POST /api/security/block-ip {ip, duration_minutes?}` | `block_ip_temporarily` | `{ip, duration_minutes, blocked_until}`; 422 on an invalid `ip` |
+| `POST /api/incidents {title, severity, summary}` | `create_incident` | the new `incidents` row (`status="open"`); 422 on an unknown `severity` |
+| `POST /api/notifications {channel, message}` | `send_notification` | `{sent, channel, notification_id}`; 422 on an unknown `channel` |
+| `POST /api/diagnostics/collect {service?, start_time?, end_time?}` | `collect_diagnostic_bundle` | `{bundle_id, service, error_count, open_incidents, collected_at}` |
 
 ### Policy Information Points (service token only)
 
-`GET /internal/transactions/{id}/tenant`, `/internal/donations/{id}/tenant`, `/internal/donors/{id}/tenant` → `{tenant_id}` or 404.
+`GET /internal/transactions/{id}/tenant`, `/internal/donations/{id}/tenant`, `/internal/donors/{id}/tenant`,
+`/internal/campaigns/{id}/tenant` → `{tenant_id}` or 404.
 Used by the runtime before the OPA tool-stage decision so OPA can compare the resource's tenant with the caller's.
 
 ## Spans
