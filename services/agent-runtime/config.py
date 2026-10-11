@@ -27,6 +27,7 @@ MAX_RETRIES_PER_TOOL = 2       # same (tool, args) pair may fail this many times
 # to this runtime without an extra round trip. Token usage is the cheapest reliable proxy for run cost and is already
 # on every chat response (gen_ai.usage.*), so it is what /run enforces as a run-level budget.
 MAX_TOKENS_PER_RUN = 20000
+MAX_HISTORY_TURNS = 20         # prior user+assistant turns replayed into messages on a session_id'd /run
 EMBED_MODEL = "text-embedding-3-small"
 
 # (tenant, role) -> LiteLLM virtual key. Missing mapping = no gateway access (fail closed).

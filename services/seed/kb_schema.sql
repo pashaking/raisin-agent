@@ -26,6 +26,20 @@ CREATE TABLE IF NOT EXISTS agent_memory (
   PRIMARY KEY (tenant_id, user_id, kind, session_id, key));
 CREATE INDEX IF NOT EXISTS agent_memory_lookup ON agent_memory (tenant_id, user_id, kind, session_id);
 
+-- conversation_turns: ordered conversation replay, scoped to (tenant_id, user_id, session_id) exactly like
+-- agent_memory's task_state kind. A separate table, not an agent_memory kind, because this is an append-only log
+-- replayed in insertion order, never addressed by key. /run loads it (oldest first) between the system prompt and
+-- the current question, and appends the user question + final (post-guardrail) answer after a successful run.
+CREATE TABLE IF NOT EXISTS conversation_turns (
+  id BIGSERIAL PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS conversation_turns_lookup ON conversation_turns (tenant_id, user_id, session_id, id);
+
 -- approval_requests: human-in-the-loop queue for high/critical-risk tool calls (Phase 10). Created only when OPA's
 -- tool-stage decision is reason='requires_approval'; args are stored verbatim at creation time and never regenerated
 -- -- a decision approves exactly this request or nothing (approval integrity: the plan's own "never execute a

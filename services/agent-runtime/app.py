@@ -13,6 +13,7 @@ import approvals
 import config
 import guardrails
 import llm
+import memory
 import policy
 import tools
 from auth import verify_bearer
@@ -105,7 +106,8 @@ def run(req: RunReq, authorization: str | None = Header(default=None)):
         ctx["placeholders"] = ph  # tools resolve <EMAIL_ADDRESS_1>-style arguments server-side; the model never sees the value
         ctx["guardrail_info"]["input"] = {"placeholders": len(ph.mapping)}
 
-        messages = [{"role": "system", "content": config.PROMPTS[prompt_name]}, {"role": "user", "content": sanitized}]
+        history = memory.get_conversation_history(claims["tenant_id"], claims["sub"], req.session_id) if req.session_id else []
+        messages = [{"role": "system", "content": config.PROMPTS[prompt_name]}, *history, {"role": "user", "content": sanitized}]
         schemas = tools.schemas_for(allowed)
         tool_log = []
         answer = ""
@@ -185,6 +187,9 @@ def run(req: RunReq, authorization: str | None = Header(default=None)):
         except guardrails.GuardrailUnavailable as e:
             _err(400, error="guardrail_unavailable", service=e.service, verdict="unavailable")
         ctx["guardrail_info"]["output"] = ginfo
+        if req.session_id:
+            memory.save_conversation_turn(claims["tenant_id"], claims["sub"], req.session_id, "user", sanitized)
+            memory.save_conversation_turn(claims["tenant_id"], claims["sub"], req.session_id, "assistant", final)
         return _envelope(
             {"answer": final, "trace_id": current_trace_id()},
             {"policy": {"model": model, "allowed_tools": allowed, "withheld_tools": d.get("withheld_tools", []),

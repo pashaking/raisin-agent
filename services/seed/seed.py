@@ -46,7 +46,7 @@ def schema():
             for u in F.USERS:
                 c.execute("INSERT INTO users VALUES (%s,%s,%s) ON CONFLICT (email) DO UPDATE SET tenant_id=EXCLUDED.tenant_id, role=EXCLUDED.role", u)
             for d in F.DONORS:
-                c.execute("INSERT INTO donors (tenant_id,email,phone,name) VALUES (%s,%s,%s,%s) ON CONFLICT (tenant_id,email) DO NOTHING", d)
+                c.execute("INSERT INTO donors (tenant_id,email,phone,first_name,last_name) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (tenant_id,email) DO NOTHING", d)
             for (did, tenant, email, amount, cur, status) in F.DONATIONS:
                 donor_id = c.execute("SELECT id FROM donors WHERE tenant_id=%s AND email=%s", (tenant, email)).fetchone()[0]
                 c.execute("INSERT INTO donations VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status, donor_id=EXCLUDED.donor_id, amount=EXCLUDED.amount",
@@ -56,10 +56,11 @@ def schema():
                           "ON CONFLICT (id) DO UPDATE SET result=EXCLUDED.result, decline_code=EXCLUDED.decline_code", tx)
             # transaction-investigation fixtures (Phase 3): campaigns first (transactions.campaign_id references them),
             # then campaign-linked transactions with occurred_at computed relative to seed time (minutes_ago).
-            for (cid, tenant, name, status, goal) in F.CAMPAIGNS:
-                c.execute("INSERT INTO campaigns (id,tenant_id,name,status,goal_amount) VALUES (%s,%s,%s,%s,%s) "
-                          "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, status=EXCLUDED.status, goal_amount=EXCLUDED.goal_amount",
-                          (cid, tenant, name, status, goal))
+            for (cid, tenant, name, status, goal, code, start_date, end_date) in F.CAMPAIGNS:
+                c.execute("INSERT INTO campaigns (id,tenant_id,name,status,goal_amount,campaign_code,start_date,end_date) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) "
+                          "ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, status=EXCLUDED.status, goal_amount=EXCLUDED.goal_amount, "
+                          "campaign_code=EXCLUDED.campaign_code, start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date",
+                          (cid, tenant, name, status, goal, code, start_date, end_date))
             c.execute("SELECT setval('campaigns_id_seq', (SELECT MAX(id) FROM campaigns))")
             def ago(minutes_ago):
                 return datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)

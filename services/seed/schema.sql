@@ -3,7 +3,11 @@ CREATE TABLE IF NOT EXISTS tenants (id TEXT PRIMARY KEY, name TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), role TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS donors (
   id SERIAL PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
-  email TEXT NOT NULL, phone TEXT, name TEXT, UNIQUE (tenant_id, email));
+  email TEXT NOT NULL, phone TEXT, first_name TEXT, last_name TEXT, UNIQUE (tenant_id, email));
+-- migration for a table created before the name split existed
+ALTER TABLE donors ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE donors ADD COLUMN IF NOT EXISTS last_name TEXT;
+ALTER TABLE donors DROP COLUMN IF EXISTS name;
 CREATE TABLE IF NOT EXISTS donations (
   id BIGINT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), donor_id INT REFERENCES donors(id),
   amount NUMERIC(12,2) NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL, receipt_resent_at TIMESTAMPTZ);
@@ -29,7 +33,12 @@ ALTER TABLE transactions ADD COLUMN IF NOT EXISTS ip_address TEXT;
 -- before the constraint could be added anyway (CREATE TABLE IF NOT EXISTS runs after transactions, first time through).
 CREATE TABLE IF NOT EXISTS campaigns (
   id SERIAL PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
-  name TEXT NOT NULL, status TEXT NOT NULL, goal_amount NUMERIC(12,2) NOT NULL);
+  name TEXT NOT NULL, status TEXT NOT NULL, goal_amount NUMERIC(12,2) NOT NULL,
+  campaign_code TEXT, start_date DATE, end_date DATE);
+-- migration for a table created before campaign_code/start_date/end_date existed
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_code TEXT;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS start_date DATE;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS end_date DATE;
 
 CREATE TABLE IF NOT EXISTS application_errors (
   id SERIAL PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),

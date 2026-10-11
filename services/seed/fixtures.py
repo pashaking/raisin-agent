@@ -1,7 +1,7 @@
 """Hardcoded fixtures. Three tenants + platform, six personas, seeded donations/transactions, canary donor,
 registry rows. Everything here is synthetic (.test domains, 555 phone)."""
 
-TENANTS = [("tenant-a", "Charity A"), ("tenant-b", "Charity B"), ("tenant-c", "PMCF"), ("platform", "Raisin platform")]
+TENANTS = [("tenant-a", "Jack.org"), ("tenant-b", "Crohn's and Colitis Canada"), ("tenant-c", "PMCF"), ("platform", "Raisin platform")]
 
 USERS = [
     ("finance.a@charity-a.test", "tenant-a", "Finance"),
@@ -18,17 +18,17 @@ CANARY_PHONE = "604-555-0199"
 
 # Presidio's email recognizer validates the TLD, so reserved test TLDs (.test) are never placeholdered. The canary
 # stays on .test on purpose (it must never appear in a span); donors that demos look up by email use example.com.
-DONORS = [  # (tenant, email, phone, name)
-    ("tenant-a", CANARY_EMAIL, CANARY_PHONE, "Canary Donor"),
-    ("tenant-a", "alex.a@example.com", None, "Alex Andersen"),
-    ("tenant-a", "morgan.a@example.com", "604-555-0111", "Morgan Adler"),
-    ("tenant-b", "regular.donor@example.test", None, "Regular Donor"),
-    ("tenant-b", "donor.b@example.test", None, "Donor B"),  # same email as the Donor persona -> get_my_donations
-    ("tenant-c", "donor@pmcf.ca", None, "Donor C"),  # same email as the tenant-c Donor persona -> get_my_donations
-    ("tenant-c", "paul@aka.com", None, "paul uchitel"),
-    ("tenant-c", "sam.c@example.com", "604-555-0133", "Sam Chen"),
-    ("tenant-c", "jordan.c@example.com", None, "Jordan Cole"),
-    ("tenant-c", "taylor.c@example.com", "604-555-0144", "Taylor Cruz"),  # recurring donor: five approved donations
+DONORS = [  # (tenant, email, phone, first_name, last_name)
+    ("tenant-a", CANARY_EMAIL, CANARY_PHONE, "Canary", "Donor"),
+    ("tenant-a", "alex.a@example.com", None, "Alex", "Andersen"),
+    ("tenant-a", "morgan.a@example.com", "604-555-0111", "Morgan", "Adler"),
+    ("tenant-b", "regular.donor@example.test", None, "Regular", "Donor"),
+    ("tenant-b", "donor.b@example.test", None, "Donor", "B"),  # same email as the Donor persona -> get_my_donations
+    ("tenant-c", "donor@pmcf.ca", None, "Donor", "C"),  # same email as the tenant-c Donor persona -> get_my_donations
+    ("tenant-c", "paul@aka.com", None, "paul", "uchitel"),
+    ("tenant-c", "sam.c@example.com", "604-555-0133", "Sam", "Chen"),
+    ("tenant-c", "jordan.c@example.com", None, "Jordan", "Cole"),
+    ("tenant-c", "taylor.c@example.com", "604-555-0144", "Taylor", "Cruz"),  # recurring donor: five approved donations
 ]
 
 DONATIONS = [  # (id, tenant, donor_email, amount, currency, status)
@@ -83,9 +83,9 @@ TRANSACTIONS = [  # (id, donation_id, tenant, amount, currency, result, decline_
 # telemetry, scoped by tenant like everything else. Kept separate from the donor/donation fixtures above so those
 # rows are untouched; occurred_at/started_at are relative to seed time (minutes/hours ago) so "last_hour" vs
 # "previous_hour" demo queries show a real pattern regardless of when `make seed` runs.
-CAMPAIGNS = [  # (id, tenant, name, status, goal_amount)
-    (1, "tenant-a", "Campaign ABC", "active", 20000.00),
-    (2, "tenant-c", "PMCF Annual Gala", "active", 50000.00),
+CAMPAIGNS = [  # (id, tenant, name, status, goal_amount, campaign_code, start_date, end_date)
+    (1, "tenant-a", "Campaign ABC", "active", 20000.00, "JACK-ABC-2026", "2026-01-01", "2026-12-31"),
+    (2, "tenant-c", "PMCF Annual Gala", "active", 50000.00, "PMCF-GALA-2026", "2026-03-01", "2026-03-31"),
 ]
 
 # (id, tenant, campaign_id, amount, gateway, result, decline_code, fraud_score, minutes_ago)
