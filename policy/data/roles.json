@@ -17,6 +17,7 @@
         "get_session_context",
         "save_task_state",
         "resend_receipt",
+        "list_campaigns",
         "get_campaign",
         "get_campaign_statistics",
         "get_transaction",

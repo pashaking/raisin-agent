@@ -60,7 +60,11 @@ def auth_token(req: TokenReq):
 @app.get("/auth/users")
 def auth_users():
     """Demo-only identity picker for the chat console (/ui). A real IdP owns this list; here it is the seeded users."""
-    return db.query("SELECT email, tenant_id, role FROM users ORDER BY role, email", table="users")
+    return db.query(
+        "SELECT u.email, u.tenant_id, t.name AS tenant_name, u.role FROM users u "
+        "JOIN tenants t ON t.id = u.tenant_id ORDER BY u.role, u.email",
+        table="users",
+    )
 
 
 @app.get("/.well-known/jwks.json")
@@ -86,7 +90,13 @@ def verify(authorization: str | None) -> dict:
 class Donor(BaseModel):
     email: str
     phone: str | None = None
-    name: str | None = None
+    name: str | None = None  # free-text full name from the public form; split into first/last on insert (donors has no name column)
+
+    def split_name(self) -> tuple[str | None, str | None]:
+        parts = (self.name or "").strip().split(None, 1)
+        if not parts:
+            return None, None
+        return parts[0], (parts[1] if len(parts) > 1 else None)
 
 
 class DonateReq(BaseModel):
@@ -109,11 +119,13 @@ def donate(req: DonateReq):
     span.set_attribute("tenant_id", req.tenant_id)
     if not db.query("SELECT id FROM tenants WHERE id = %s", (req.tenant_id,), one=True, table="tenants"):
         raise HTTPException(404, "unknown tenant")
+    first_name, last_name = req.donor.split_name()
     donor = db.query(
-        "INSERT INTO donors (tenant_id, email, phone, name) VALUES (%s,%s,%s,%s) "
-        "ON CONFLICT (tenant_id, email) DO UPDATE SET phone = COALESCE(donors.phone, EXCLUDED.phone), name = COALESCE(donors.name, EXCLUDED.name) "
+        "INSERT INTO donors (tenant_id, email, phone, first_name, last_name) VALUES (%s,%s,%s,%s,%s) "
+        "ON CONFLICT (tenant_id, email) DO UPDATE SET phone = COALESCE(donors.phone, EXCLUDED.phone), "
+        "first_name = COALESCE(donors.first_name, EXCLUDED.first_name), last_name = COALESCE(donors.last_name, EXCLUDED.last_name) "
         "RETURNING id",
-        (req.tenant_id, req.donor.email, req.donor.phone, req.donor.name), one=True, table="donors")
+        (req.tenant_id, req.donor.email, req.donor.phone, first_name, last_name), one=True, table="donors")
     donation_id = db.query("SELECT nextval('donation_id_seq') AS id", one=True, table="donation_id_seq")["id"]
     span.set_attribute("donation.id", donation_id)
     db.query("INSERT INTO donations (id, tenant_id, donor_id, amount, currency, status) VALUES (%s,%s,%s,%s,%s,'pending')",
@@ -675,6 +687,26 @@ def collect_diagnostic_bundle(req: CollectDiagnosticsReq, authorization: str | N
               "collected_at": datetime.now(timezone.utc).isoformat()}
     _log_action(claims["tenant_id"], "collect_diagnostic_bundle", req.model_dump(), claims["sub"], result)
     return result
+
+
+@app.get("/api/campaigns")
+def campaigns(authorization: str | None = Header(default=None), x_service_token: str | None = Header(default=None),
+              status: str | None = None, limit: int = 50):
+    """list_campaigns: every campaign of the caller's tenant (JWT), optionally filtered by status. Tenant comes from the
+    JWT, never from a parameter; same minimized row shape as get_campaign plus the date window."""
+    claims = authorize(authorization, x_service_token, "list_campaigns")
+    limit = max(1, min(int(limit), 50))
+    sql = "SELECT id, name, status, goal_amount, start_date, end_date FROM campaigns WHERE tenant_id = %s"
+    params: list = [claims["tenant_id"]]
+    if status:
+        sql += " AND status = %s"; params.append(status)
+    sql += " ORDER BY id LIMIT %s"; params.append(limit)
+    rows = db.query(sql, tuple(params), table="campaigns")
+    out = [{"id": c["id"], "name": c["name"], "status": c["status"], "goal_amount": float(c["goal_amount"]),
+            "start_date": c["start_date"].isoformat() if c["start_date"] else None,
+            "end_date": c["end_date"].isoformat() if c["end_date"] else None} for c in rows]
+    trace.get_current_span().set_attribute("tool.result.count", len(out))
+    return {"campaigns": out, "count": len(out)}
 
 
 @app.get("/api/campaigns/{campaign_id}")

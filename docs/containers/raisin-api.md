@@ -70,6 +70,7 @@ and `incidents` are tenant-scoped, seed-owned tables (`services/seed/fixtures.py
 
 | Endpoint | Backing tool | Returns |
 |---|---|---|
+| `GET /api/campaigns?status&limit` | `list_campaigns` | `{campaigns: [{id, name, status, goal_amount, start_date, end_date}], count}` for the JWT tenant only; empty list (not 404) when the tenant has none |
 | `GET /api/campaigns/{id}` | `get_campaign` | `{id, name, status, goal_amount}`; 404 for missing/foreign ids |
 | `GET /api/campaigns/{id}/statistics` | `get_campaign_statistics` | transaction aggregates + `decline_categories` for that campaign (all-time) |
 | `GET /api/transactions/{id}` | `get_transaction` | full minimized transaction incl. `gateway`, `campaign_id`, `occurred_at` |

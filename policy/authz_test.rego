@@ -26,6 +26,7 @@ registry := {
 		# transaction-investigation tool set (Phase 3): not in the base `roles` fixture's Finance.tools above (so the
 		# model-stage allowed_tools exact-equality tests keep passing unmodified); tests below grant them per-test via
 		# object.union, the same pattern the resend_receipt tests use.
+		"list_campaigns": {"approved": true, "action_risk": "low"},
 		"get_campaign": {"approved": true, "action_risk": "low"},
 		"get_campaign_statistics": {"approved": true, "action_risk": "low"},
 		"get_transaction": {"approved": true, "action_risk": "low"},
@@ -65,7 +66,7 @@ test_finance_model_allow_default_model if {
 	# withheld_tools is every approved tool the role doesn't list (model-stage coarse layer): the registry fixture
 	# above also carries the Phase 3 investigation tools as approved, un-granted to this base `roles` fixture's
 	# Finance -- so they show up here too, not just resend_receipt/get_my_donations.
-	{t | some t in d.withheld_tools} == {"resend_receipt", "get_my_donations", "get_campaign", "get_campaign_statistics",
+	{t | some t in d.withheld_tools} == {"resend_receipt", "get_my_donations", "list_campaigns", "get_campaign", "get_campaign_statistics",
 		"get_transaction", "search_transactions", "get_transaction_statistics", "compare_transaction_periods",
 		"get_decline_statistics", "get_payment_gateway_statistics", "get_fraud_signals", "get_application_errors",
 		"get_incident_history", "restart_worker", "clear_failed_job", "block_ip_temporarily", "create_incident",
@@ -251,7 +252,7 @@ test_approval_execute_deny_unknown_role if {
 # READ+ANALYZE+RECOMMEND only), same as any other low-risk tool; no new rego logic, just new data.
 roles_with_investigation_tools := object.union(roles, {"Finance": object.union(roles.Finance, {"tools": array.concat(
 	roles.Finance.tools,
-	["get_campaign", "get_campaign_statistics", "get_transaction", "search_transactions", "get_transaction_statistics",
+	["list_campaigns", "get_campaign", "get_campaign_statistics", "get_transaction", "search_transactions", "get_transaction_statistics",
 		"compare_transaction_periods", "get_decline_statistics", "get_payment_gateway_statistics", "get_fraud_signals",
 		"get_application_errors", "get_incident_history"],
 )})})
@@ -269,6 +270,21 @@ test_tool_deny_get_campaign_foreign_tenant if {
 		with data.roles as roles_with_investigation_tools with data.registry as registry
 	not d.allow
 	d.reason == "tenant_mismatch"
+}
+
+test_tool_allow_list_campaigns_own_tenant if {
+	# tenant-scoped list tool: resource tenant is always the caller's own, like get_tenant_donation_summary
+	d := authz.decision with input as {"stage": "tool", "subject": finance_a, "tool": "list_campaigns", "resource": {"tenant_id": "tenant-a"}}
+		with data.roles as roles_with_investigation_tools with data.registry as registry
+	d.allow
+	d.risk == "low"
+}
+
+test_tool_deny_list_campaigns_donor_role if {
+	d := authz.decision with input as {"stage": "tool", "subject": donor_b, "tool": "list_campaigns", "resource": {"tenant_id": "tenant-b"}}
+		with data.roles as roles_with_investigation_tools with data.registry as registry
+	not d.allow
+	d.reason == "tool_not_in_role"
 }
 
 test_tool_allow_get_transaction_statistics_own_tenant if {

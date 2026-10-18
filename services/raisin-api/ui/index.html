@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Control Plane Console</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <style>
   :root {
     --bg: #0f1216; --panel: #161b22; --panel2: #1d242d; --border: #2a323d; --text: #e6e9ee; --muted: #8b95a3;
@@ -16,7 +18,8 @@
   header .sub { color: var(--muted); font-size: 12px; }
   header .links { margin-left: auto; display: flex; gap: 12px; font-size: 12px; }
   a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-  main { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+  main { flex: 1; display: grid; grid-template-columns: 280px minmax(0, 1fr) 440px; min-height: 0; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; grid-auto-rows: minmax(0, 1fr); overflow-y: auto; } aside, .chat { border-right: 0; border-left: 0; border-bottom: 1px solid var(--border); } }
   aside { border-right: 1px solid var(--border); background: var(--panel); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
   label.lbl { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 6px; }
   select, textarea, input[type=number] { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font: inherit; }
@@ -31,32 +34,69 @@
   .quick button { text-align: left; background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; cursor: pointer; font: inherit; font-size: 12.5px; }
   .quick button:hover { border-color: var(--accent); }
   .quick small { display: block; color: var(--muted); font-size: 11px; }
-  .chat { display: flex; flex-direction: column; min-height: 0; }
-  #log { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
-  .msg { max-width: 860px; border-radius: 10px; padding: 12px 14px; border: 1px solid var(--border); background: var(--panel); white-space: pre-wrap; word-wrap: break-word; }
-  .msg.user { align-self: flex-end; background: var(--user); border-color: #34456b; }
-  .msg .who { font-size: 11px; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); white-space: normal; }
-  .msg.err { border-color: var(--bad); }
-  .msg.err .who { color: var(--bad); }
-  .cp { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; white-space: normal; }
+
+  /* ---- inspector (center) ---- */
+  .inspector { min-width: 0; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .inspector .empty { color: var(--muted); font-size: 13px; max-width: 520px; line-height: 1.6; }
+  .card { border: 1px solid var(--border); background: var(--panel); border-radius: 10px; padding: 12px 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 600; }
+  .card .prompt { white-space: pre-wrap; word-wrap: break-word; font-size: 13px; color: var(--text); }
+  .card.err { border-color: var(--bad); }
+  .card.err h2 { color: var(--bad); }
+  .cp .row { margin-top: 6px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .cp .row:first-child { margin-top: 0; }
+  .cp .k { font-size: 11px; color: var(--muted); min-width: 78px; text-transform: uppercase; letter-spacing: .5px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--panel2); color: var(--text); }
   .chip.ok { border-color: var(--ok); color: var(--ok); }
   .chip.bad { border-color: var(--bad); color: var(--bad); }
   .chip.warn { border-color: var(--warn); color: var(--warn); }
   .chip.dim { color: var(--muted); }
-  .cp .row { margin-top: 6px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-  .cp .k { font-size: 11px; color: var(--muted); min-width: 78px; text-transform: uppercase; letter-spacing: .5px; }
   details { margin-top: 8px; } summary { cursor: pointer; color: var(--muted); font-size: 12px; }
   pre { margin: 6px 0 0; font: 11.5px/1.4 var(--mono); background: var(--bg); padding: 10px; border-radius: 6px; overflow-x: auto; }
-  .composer { border-top: 1px solid var(--border); padding: 12px 24px 16px; background: var(--panel); display: flex; gap: 10px; align-items: flex-end; }
-  .composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 160px; }
-  .composer button { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 10px 18px; font: inherit; font-weight: 600; cursor: pointer; height: 44px; }
-  .composer button:disabled { opacity: .5; cursor: default; }
-  .hint { color: var(--muted); font-size: 11px; padding: 0 24px 10px; background: var(--panel); }
+
+  /* ---- chat (right side) ---- */
+  .chat { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--border); background: var(--panel); }
+  .chat .title { padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .chat .title button { margin-left: auto; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; font: inherit; font-size: 11px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+  .chat .title button:hover { border-color: var(--accent); color: var(--text); }
+  #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 92%; border-radius: 12px; padding: 9px 12px; border: 1px solid var(--border); background: var(--panel2); word-wrap: break-word; overflow-wrap: anywhere; cursor: pointer; }
+  .msg.user { align-self: flex-end; background: var(--user); border-color: #34456b; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+  .msg.assistant { align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg.err { align-self: flex-start; border-color: var(--bad); }
+  .msg.selected { box-shadow: 0 0 0 1px var(--accent); }
+  .msg .who { font-size: 10.5px; color: var(--muted); margin-bottom: 4px; font-family: var(--mono); white-space: normal; }
+  .msg.err .who { color: var(--bad); }
+  .msg .meta { font-size: 10.5px; color: var(--muted); margin-top: 6px; font-family: var(--mono); display: flex; gap: 8px; flex-wrap: wrap; }
+  .msg .meta .inspect { color: var(--accent); }
   .spinner { color: var(--muted); font-style: italic; }
-  .story-block { margin-top: 8px; }
-  .story-block .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .story-block { margin-top: 8px; } .story-block:first-child { margin-top: 0; }
+  .story-block .k { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+  .composer { border-top: 1px solid var(--border); padding: 10px 12px 12px; background: var(--panel); display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 160px; }
+  .composer button { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; height: 44px; }
+  .composer button:disabled { opacity: .5; cursor: default; }
+  .hint { color: var(--muted); font-size: 11px; padding: 0 12px 10px; background: var(--panel); }
+
+  /* ---- rendered markdown ---- */
+  .md { font-size: 13.5px; line-height: 1.5; }
+  .md > :first-child { margin-top: 0; } .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 8px; }
+  .md h1, .md h2, .md h3, .md h4 { margin: 10px 0 6px; line-height: 1.3; font-weight: 600; }
+  .md h1 { font-size: 16px; } .md h2 { font-size: 15px; } .md h3 { font-size: 14px; } .md h4 { font-size: 13.5px; }
+  .md ul, .md ol { margin: 4px 0 8px; padding-left: 22px; }
+  .md li { margin: 2px 0; } .md li > p { margin: 0; }
+  .md code { font: 12px/1.4 var(--mono); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .md pre { margin: 6px 0 8px; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; }
+  .md pre code { background: none; border: 0; padding: 0; font-size: 12px; }
+  .md blockquote { margin: 6px 0 8px; padding: 4px 12px; border-left: 3px solid var(--border); color: var(--muted); }
+  .md table { border-collapse: collapse; margin: 6px 0 8px; font-size: 12.5px; max-width: 100%; display: block; overflow-x: auto; }
+  .md th, .md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
+  .md th { background: var(--bg); font-weight: 600; }
+  .md hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
+  .md a { color: var(--accent); }
+  .md img { max-width: 100%; }
 </style>
 </head>
 <body>
@@ -104,7 +144,15 @@
       Demo console. Token is minted by raisin-api <code>/auth/token</code> for the selected user (stand-in for the IdP). Every reply carries the trace id; follow it into Jaeger for the full policy and guardrail waterfall.
     </div>
   </aside>
+  <section class="inspector" id="inspector">
+    <div class="empty">
+      <strong>Control plane inspector.</strong><br>
+      Send a prompt from the chat panel on the right. The conversation stays there; this panel shows what the control plane did for the selected turn: OPA policy decisions, allowed and withheld tools, tool calls, guardrail verdicts, retrieved documents, placeholders the model saw, trace links and the raw response.
+      Click any reply in the chat to inspect it.
+    </div>
+  </section>
   <section class="chat">
+    <div class="title">Conversation <button id="clear" title="Clear conversation">clear</button></div>
     <div id="log"></div>
     <div class="composer">
       <textarea id="prompt" placeholder="Type a question for the assistant, or free-text notes for the story generator…"></textarea>
@@ -117,6 +165,7 @@
 const JAEGER = "http://localhost:16686", PHOENIX = "http://localhost:16006";
 const $ = (id) => document.getElementById(id);
 let users = [], token = null, tokenUser = null, tokenExp = 0, mode = "assistant";
+const turns = []; let selectedTurn = null;
 
 const QUICK = [
   { t: "Why was donation 873928 declined?", s: "tenant-a transaction. Finance A → allow; Finance B → tenant_mismatch; Donor → tool withheld, KB only" },
@@ -133,17 +182,30 @@ const QUICK = [
 
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function chip(text, cls = "") { return `<span class="chip ${cls}">${esc(text)}</span>`; }
+
+// Markdown → sanitized HTML. Falls back to escaped text with line breaks if the CDN libraries did not load.
+if (window.marked) marked.setOptions({ gfm: true, breaks: true });
+function md(text) {
+  const s = String(text ?? "");
+  if (window.marked && window.DOMPurify) {
+    const html = marked.parse(s);
+    return `<div class="md">${DOMPurify.sanitize(html, { USE_PROFILES: { html: true }, ADD_ATTR: ["target"] })}</div>`;
+  }
+  return `<div class="md"><p>${esc(s).replace(/\n/g, "<br>")}</p></div>`;
+}
+if (window.DOMPurify) DOMPurify.addHook("afterSanitizeAttributes", n => { if (n.tagName === "A") { n.setAttribute("target", "_blank"); n.setAttribute("rel", "noopener noreferrer"); } });
+
 function add(html, cls = "") { const d = document.createElement("div"); d.className = `msg ${cls}`; d.innerHTML = html; $("log").appendChild(d); $("log").scrollTop = $("log").scrollHeight; return d; }
 
 async function loadUsers() {
   const r = await fetch("/auth/users"); users = await r.json();
-  $("user").innerHTML = users.map(u => `<option value="${esc(u.email)}">${esc(u.email)}  ·  ${esc(u.role)}  ·  ${esc(u.tenant_id)}</option>`).join("");
+  $("user").innerHTML = users.map(u => `<option value="${esc(u.email)}">${esc(u.email)}  ·  ${esc(u.role)}  ·  ${esc(u.tenant_name)}</option>`).join("");
   if (users.some(u => u.email === "finance.a@charity-a.test")) $("user").value = "finance.a@charity-a.test";
   onUserChange();
 }
 function onUserChange() {
   const u = users.find(x => x.email === $("user").value); token = null;
-  $("userBadges").innerHTML = u ? chipBadge(u.role, "role") + chipBadge(u.tenant_id) + chipBadge(u.email) : "";
+  $("userBadges").innerHTML = u ? chipBadge(u.role, "role") + chipBadge(u.tenant_name) + chipBadge(u.email) : "";
   if (u && u.role === "Participant" && mode !== "story") setMode("story");
   if (u && u.role !== "Participant" && mode === "story") setMode("assistant");
 }
@@ -187,12 +249,47 @@ function controlPlane(b) {
   return out.join("");
 }
 
+// ---- inspector: shows control-plane detail for one turn ----
+function inspect(turn) {
+  selectedTurn = turn;
+  document.querySelectorAll(".msg.selected").forEach(m => m.classList.remove("selected"));
+  if (turn.el) turn.el.classList.add("selected");
+  if (turn.userEl) turn.userEl.classList.add("selected");
+  const raw = turn.body != null ? `<details><summary>raw response</summary><pre>${esc(JSON.stringify(turn.body, null, 2))}</pre></details>` : "";
+  const head = `<div class="card"><h2>Turn ${turn.n} · ${esc(turn.user)} · ${esc(turn.role)} · ${esc(turn.tenant)} · ${esc(turn.mode)}</h2><div class="prompt">${esc(turn.text)}</div></div>`;
+  let body;
+  if (turn.pending) {
+    body = `<div class="card"><h2>Status</h2><span class="spinner">policy → guardrails → model → tools → guardrails…</span></div>`;
+  } else if (turn.failed) {
+    body = `<div class="card err"><h2>Request failed</h2>${esc(turn.reason)}</div>`;
+  } else if (!turn.ok) {
+    body = `<div class="card err"><h2>HTTP ${turn.status} · ${turn.ms} ms · blocked before any answer</h2>${esc(turn.reason)}<div class="cp">${traceLinks(turn.tid)}</div>${raw}</div>`;
+  } else {
+    body = `<div class="card"><h2>Control plane · HTTP ${turn.status} · ${turn.ms} ms</h2><div class="cp">${controlPlane(turn.body)}${traceLinks(turn.tid)}</div>${raw}</div>`;
+  }
+  $("inspector").innerHTML = head + body;
+}
+
+function metaLine(turn) {
+  const bits = [];
+  if (turn.status) bits.push(`HTTP ${turn.status}`);
+  if (turn.ms != null) bits.push(`${turn.ms} ms`);
+  if (turn.tid) bits.push(`<a href="${JAEGER}/trace/${turn.tid}" target="_blank">trace</a>`);
+  bits.push(`<span class="inspect">inspect →</span>`);
+  return `<div class="meta">${bits.join("<span>·</span>")}</div>`;
+}
+
 async function send() {
   const text = $("prompt").value.trim(); if (!text) return;
   const user = $("user").value, u = users.find(x => x.email === user) || {};
   $("send").disabled = true; $("prompt").value = "";
-  add(`<div class="who">${esc(user)} · ${esc(u.role)} · ${esc(u.tenant_id)} · ${mode}</div>${esc(text)}`, "user");
-  const wait = add(`<span class="spinner">policy → guardrails → model → tools → guardrails…</span>`);
+  const turn = { n: turns.length + 1, user, role: u.role, tenant: u.tenant_name, mode, text, pending: true };
+  turns.push(turn);
+  turn.userEl = add(`<div class="who">${esc(user)} · ${esc(u.role)} · ${mode}</div>${esc(text)}`, "user");
+  turn.userEl.onclick = () => inspect(turn);
+  const wait = add(`<span class="spinner">thinking…</span>`, "assistant");
+  turn.el = wait; wait.onclick = () => inspect(turn);
+  inspect(turn);
   const t0 = performance.now();
   try {
     const tok = await getToken();
@@ -200,30 +297,32 @@ async function send() {
     if ($("model").value) body.model = $("model").value;
     if (mode !== "story" && $("temp").value !== "") body.temperature = parseFloat($("temp").value);
     const r = await fetch(mode === "story" ? "/story" : "/assistant", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` }, body: JSON.stringify(body) });
-    const ms = Math.round(performance.now() - t0);
+    turn.ms = Math.round(performance.now() - t0); turn.status = r.status; turn.ok = r.ok; turn.pending = false;
     let b; try { b = await r.json(); } catch { b = { raw: await r.text() }; }
-    const tid = r.headers.get("X-Trace-Id") || b.trace_id || (b.detail && b.detail.trace_id);
-    const raw = `<details><summary>raw response</summary><pre>${esc(JSON.stringify(b, null, 2))}</pre></details>`;
+    turn.body = b;
+    turn.tid = r.headers.get("X-Trace-Id") || b.trace_id || (b.detail && b.detail.trace_id);
     if (!r.ok) {
       const d = b.detail || b;
       const inner = (d && typeof d.detail === "object") ? d.detail : {};
       const reasons = (inner.reasons || []).join(", ");
       const clf = inner.classifier ? `classifier ${inner.classifier.model} ${inner.classifier.score}` : "";
-      const reason = typeof d === "object" ? [d.error, d.stage, d.reason, d.verdict, reasons && `reasons: ${reasons}`, inner.risk_score != null && `risk ${inner.risk_score}`, clf].filter(Boolean).join(" · ") : String(d);
+      turn.reason = (typeof d === "object" ? [d.error, d.stage, d.reason, d.verdict, reasons && `reasons: ${reasons}`, inner.risk_score != null && `risk ${inner.risk_score}`, clf].filter(Boolean).join(" · ") : String(d)) || JSON.stringify(d);
       wait.className = "msg err";
-      wait.innerHTML = `<div class="who">HTTP ${r.status} · ${ms} ms · blocked before any answer</div>${esc(reason || JSON.stringify(d))}<div class="cp">${traceLinks(tid)}${raw}</div>`;
-      return;
-    }
-    let answer;
-    if (mode === "story") {
-      answer = `<div class="story-block"><div class="k">story page</div>${esc(b.story)}</div><div class="story-block"><div class="k">social post</div>${esc(b.social_post || "(empty)")}</div>`;
+      wait.innerHTML = `<div class="who">blocked · HTTP ${r.status}</div><div class="md"><p>${esc(turn.reason)}</p></div>${metaLine(turn)}`;
     } else {
-      answer = esc(b.answer);
+      let answer;
+      if (mode === "story") {
+        answer = `<div class="story-block"><div class="k">story page</div>${md(b.story)}</div><div class="story-block"><div class="k">social post</div>${md(b.social_post || "(empty)")}</div>`;
+      } else {
+        answer = md(b.answer);
+      }
+      wait.innerHTML = `<div class="who">assistant</div>${answer}${metaLine(turn)}`;
     }
-    wait.innerHTML = `<div class="who">assistant · HTTP ${r.status} · ${ms} ms</div>${answer}<div class="cp">${controlPlane(b)}${traceLinks(tid)}${raw}</div>`;
   } catch (e) {
-    wait.className = "msg err"; wait.innerHTML = `<div class="who">request failed</div>${esc(e.message)}`;
+    turn.pending = false; turn.failed = true; turn.reason = e.message; turn.ms = Math.round(performance.now() - t0);
+    wait.className = "msg err"; wait.innerHTML = `<div class="who">request failed</div><div class="md"><p>${esc(e.message)}</p></div>${metaLine(turn)}`;
   } finally {
+    if (selectedTurn === turn) inspect(turn);
     $("send").disabled = false; $("prompt").focus(); $("log").scrollTop = $("log").scrollHeight;
   }
 }
@@ -232,6 +331,7 @@ $("user").onchange = onUserChange;
 $("modeAssistant").onclick = () => setMode("assistant");
 $("modeStory").onclick = () => setMode("story");
 $("send").onclick = send;
+$("clear").onclick = () => { turns.length = 0; selectedTurn = null; $("log").innerHTML = ""; $("inspector").innerHTML = `<div class="empty">Conversation cleared. Send a prompt to inspect a new turn.</div>`; };
 $("prompt").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 renderQuick(); loadUsers();
 </script>

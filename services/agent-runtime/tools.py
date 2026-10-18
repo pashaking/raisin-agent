@@ -94,6 +94,14 @@ SCHEMAS = {
     # Transaction-investigation tool set (plan Phase 3, literal names): campaign/gateway/fraud/error/incident
     # investigation tools, additive to the donor/donation tools above. All action_risk=low (Phase 1: READ+ANALYZE+
     # RECOMMEND only -- no MODIFY/BLOCK/REFUND tool exists in this set).
+    "list_campaigns": _fn(
+        "list_campaigns",
+        "List all campaigns of the caller's charity: id, name, status, goal amount, start/end date. Optionally "
+        "filtered by status. limit <= 50. Use this to find a campaign id before calling get_campaign or "
+        "get_campaign_statistics.",
+        {"type": "object", "properties": {
+            "status": {"type": "string"},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50}}}),
     "get_campaign": _fn(
         "get_campaign",
         "Get one campaign of the caller's charity by campaign id: name, status, goal amount. Returns not_found if "
@@ -472,6 +480,8 @@ HANDLERS = {
     "save_task_state": _save_task_state,
     "resend_receipt": _resend_receipt,
     # transaction-investigation tool set (Phase 3)
+    "list_campaigns": lambda a, c, s: _tenant_scoped(
+        "list_campaigns", "GET", "/api/campaigns", c, s, params=_params(a, ("status", "limit"))),
     "get_campaign": lambda a, c, s: _by_id("get_campaign", "campaign", "campaign_id", "/api/campaigns/{id}", a, c, s),
     "get_campaign_statistics": lambda a, c, s: _by_id("get_campaign_statistics", "campaign", "campaign_id", "/api/campaigns/{id}/statistics", a, c, s),
     "get_transaction": lambda a, c, s: _by_id("get_transaction", "transaction", "transaction_id", "/api/transactions/{id}", a, c, s),

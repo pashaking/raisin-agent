@@ -122,6 +122,14 @@ def part_a():
     # CAMPAIGN_TRANSACTIONS). Assertions below use the all-time aggregates (no start_time/end_time), which are stable
     # regardless of when this test runs; last_hour/previous_hour window boundaries are time-relative to "now" and
     # are exercised only for shape, not exact counts, to avoid flaking as real time drifts past the fixture's offsets.
+    st, b = get("/api/campaigns", ta)
+    rows = b.get("campaigns", []) if isinstance(b, dict) else []
+    check("list_campaigns own tenant -> only tenant-a campaigns", st == 200 and [r["id"] for r in rows] == [1] and rows[0]["name"] == "Campaign ABC"
+          and b.get("count") == 1, f"{st} {b}")
+    st, b = get("/api/campaigns", tb)
+    check("list_campaigns tenant without campaigns -> empty list, not 404", st == 200 and b.get("campaigns") == [] and b.get("count") == 0, f"{st} {b}")
+    st, b = get("/api/campaigns?status=closed", ta)
+    check("list_campaigns status filter -> empty for unused status", st == 200 and b.get("count") == 0, f"{st} {b}")
     st, b = get("/api/campaigns/1", ta)
     check("campaign own tenant -> 200", st == 200 and b.get("name") == "Campaign ABC", f"{st} {b}")
     st_f, b_f = get("/api/campaigns/1", tb)
@@ -284,7 +292,7 @@ def part_a():
                     "donor": {"email": CANARY_EMAIL, "phone": "604-555-9999", "name": "Impostor"}})
     import subprocess as _sp
     row = _sp.run(["docker", "compose", "exec", "-T", "postgres", "psql", "-U", "poc", "-d", "raisin", "-tA", "-c",
-                   f"select phone || '|' || name from donors where tenant_id='tenant-a' and email='{CANARY_EMAIL}'"], capture_output=True, text=True).stdout.strip()
+                   f"select phone || '|' || first_name || ' ' || last_name from donors where tenant_id='tenant-a' and email='{CANARY_EMAIL}'"], capture_output=True, text=True).stdout.strip()
     check("donate: existing donor contact fields never overwritten by a public form post", st == 200 and row == f"{demo.CANARY_PHONE}|Canary Donor", f"{st} row now {row!r}")
 
     # --- no JWT ---

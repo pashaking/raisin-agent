@@ -46,7 +46,11 @@ def schema():
             for u in F.USERS:
                 c.execute("INSERT INTO users VALUES (%s,%s,%s) ON CONFLICT (email) DO UPDATE SET tenant_id=EXCLUDED.tenant_id, role=EXCLUDED.role", u)
             for d in F.DONORS:
-                c.execute("INSERT INTO donors (tenant_id,email,phone,first_name,last_name) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (tenant_id,email) DO NOTHING", d)
+                # backfill, never overwrite: a volume created before the name split has first_name/last_name NULL on
+                # pre-existing donor rows (the migration drops `name` and adds empty columns); COALESCE fills only those.
+                c.execute("INSERT INTO donors (tenant_id,email,phone,first_name,last_name) VALUES (%s,%s,%s,%s,%s) "
+                          "ON CONFLICT (tenant_id,email) DO UPDATE SET phone=COALESCE(donors.phone, EXCLUDED.phone), "
+                          "first_name=COALESCE(donors.first_name, EXCLUDED.first_name), last_name=COALESCE(donors.last_name, EXCLUDED.last_name)", d)
             for (did, tenant, email, amount, cur, status) in F.DONATIONS:
                 donor_id = c.execute("SELECT id FROM donors WHERE tenant_id=%s AND email=%s", (tenant, email)).fetchone()[0]
                 c.execute("INSERT INTO donations VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO UPDATE SET status=EXCLUDED.status, donor_id=EXCLUDED.donor_id, amount=EXCLUDED.amount",

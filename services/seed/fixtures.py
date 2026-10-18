@@ -158,6 +158,7 @@ REGISTRY = [  # (kind, name, owner, risk_tier, action_risk, approved)
     ("tool", "get_session_context", "platform-eng", 1, "low", True),
     ("tool", "save_task_state", "platform-eng", 1, "medium", True),
     # transaction-investigation tool set (Phase 3): all read-only, action_risk=low (Phase 1 autonomy: READ+ANALYZE+RECOMMEND only)
+    ("tool", "list_campaigns", "finance-systems", 2, "low", True),
     ("tool", "get_campaign", "finance-systems", 3, "low", True),
     ("tool", "get_campaign_statistics", "finance-systems", 2, "low", True),
     ("tool", "get_transaction", "finance-systems", 3, "low", True),

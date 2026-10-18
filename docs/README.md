@@ -20,6 +20,7 @@ Jaeger traces, model `gpt-4o-mini`, temperature 0).
 | Review the agent against the OWASP Agentic Top 10, category by category | [08-security-review.md](08-security-review.md) |
 | Run, test, tune, inspect (commands) | [../RUNBOOK.md](../RUNBOOK.md) |
 | Present the whole thing: design, architecture, infrastructure, request flow, failure map, observability, production-readiness gaps (slide-style page) | [06-poc-presentation.html](06-poc-presentation.html) |
+| See every container and every data flow animated, toggle flows (chat, tool calls, policy, guardrails, PII, traces, seed) and the responses that come back; click a box for its purpose, ports and connections | [09-container-data-flow.html](09-container-data-flow.html) (regenerate: `python3 docs/diagrams/container_data_flow.py`) |
 
 ## Diagrams
 
@@ -34,6 +35,7 @@ Source is the `.mmd` file in `infra-designs/diagrams/`; `.svg`, `.png` and `.exc
 | 11 | [Failure map: where a request stops and what the caller sees](../../diagrams/11-poc-failure-map.png) | failure paths |
 | 12 | [Observability pipeline](../../diagrams/12-poc-observability-pipeline.png) | observability reference |
 | 13 | [Story path with PII placeholders](../../diagrams/13-poc-story-pii-sequence.png) | request lifecycle, success paths |
+| 14 | [Containers and data flow, animated](09-container-data-flow.html) (source: `docs/diagrams/container_data_flow.py`, in this repo) | architecture, containers |
 
 Earlier design-level diagrams (01 placement, 02 lifecycle, 03 RAG/tools split, 04 multi-tenant RAG, 05 data minimization,
 06 learning path) describe the target architecture; 07 to 13 describe what the POC actually runs.

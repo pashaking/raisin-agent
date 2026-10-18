@@ -164,6 +164,7 @@ for each one's endpoint and return shape). All `action_risk=low` (Phase 1 autono
 
 | Tool | Shape | `action_risk` |
 |---|---|---|
+| `list_campaigns(status?, limit?)` | tenant-scoped; the discovery step before the by-id campaign tools | low |
 | `get_campaign(campaign_id)` | by-id (PIP kind `campaign`) | low |
 | `get_campaign_statistics(campaign_id)` | by-id | low |
 | `get_transaction(transaction_id)` | by-id | low |
