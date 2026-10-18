@@ -123,6 +123,17 @@ Design points worth showing:
 success and failure paths with real responses and Jaeger span trees (2026-09-07), an observability reference, and one page per
 container (`docs/containers/`). Diagrams 07 to 13 in `../diagrams/` describe what the POC actually runs.
 
+### Interactive data-flow diagram
+
+[![Containers and data flow](docs/diagrams/09-container-data-flow-preview.png)](https://pashaking.github.io/raisin-agent/09-container-data-flow.html)
+
+**[Open the live, animated version](https://pashaking.github.io/raisin-agent/09-container-data-flow.html)** (GitHub Pages, served from
+`docs/`). Pick a scenario to show only the containers one kind of request touches, toggle individual flows, click a box for its
+purpose, ports and connections. The slide-style walkthrough is at
+[06-poc-presentation.html](https://pashaking.github.io/raisin-agent/06-poc-presentation.html). Source for both lives in
+[docs/](docs/); GitHub shows `.html` files as code, so the links above go through Pages. Regenerate the diagram with
+`python3 docs/diagrams/container_data_flow.py`, and the preview image with a full-page screenshot at 1280px.
+
 ## Run it
 
 Chat console: http://localhost:18080/ui (pick a user, type a prompt; every reply shows policy decisions, tool calls, guardrail verdicts and the Jaeger/Phoenix trace links).

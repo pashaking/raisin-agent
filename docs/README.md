@@ -20,7 +20,7 @@ Jaeger traces, model `gpt-4o-mini`, temperature 0).
 | Review the agent against the OWASP Agentic Top 10, category by category | [08-security-review.md](08-security-review.md) |
 | Run, test, tune, inspect (commands) | [../RUNBOOK.md](../RUNBOOK.md) |
 | Present the whole thing: design, architecture, infrastructure, request flow, failure map, observability, production-readiness gaps (slide-style page) | [06-poc-presentation.html](06-poc-presentation.html) |
-| See every container and every data flow animated, toggle flows (chat, tool calls, policy, guardrails, PII, traces, seed) and the responses that come back; click a box for its purpose, ports and connections | [09-container-data-flow.html](09-container-data-flow.html) (regenerate: `python3 docs/diagrams/container_data_flow.py`) |
+| See every container and every data flow animated, toggle flows (chat, tool calls, policy, guardrails, PII, traces, seed) and the responses that come back; click a box for its purpose, ports and connections | [09-container-data-flow.html](09-container-data-flow.html) ([live on Pages](https://pashaking.github.io/raisin-agent/09-container-data-flow.html); regenerate: `python3 docs/diagrams/container_data_flow.py`) |
 
 ## Diagrams
 
