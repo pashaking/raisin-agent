@@ -8,7 +8,7 @@ and a service token for `raisin-api`.
 | | |
 |---|---|
 | Build | `services/agent-runtime/Dockerfile` (FastAPI, openai SDK, httpx, psycopg, PyJWT) |
-| Port | 18090 → 8090 (the console and demo go through `raisin-api`, not this port) |
+| Port | 18090 → 8090 (the console and scripted scenarios go through `raisin-api`, not this port) |
 | Depends on | `litellm` healthy, `raisin-api` healthy, `opa` started |
 | Health | `GET /health` → `{"ok": true, "trace_content": "off", "debug_panel": "on"}` |
 | Code | `app.py` (endpoints, envelope), `policy.py` (PEP), `guardrails.py` (Presidio + guardrails client, stages), `tools.py` (12 handlers, PIP, placeholder resolution, RAG), `memory.py` (controlled agent memory, kb database), `approvals.py` (human approval queue, kb database), `llm.py` (chat/embed spans, content minimization), `auth.py` (JWKS verification), `limits.py` (loop-pattern detector, termination messages — pure, no deps), `config.py` |
@@ -90,8 +90,8 @@ table (same credentials as `memory.py`, no new secret).
    guardrail's `self_check_output` rail -- console finding, 2026-10-04.)
 2. `GET /approvals` (pending queue, caller's own tenant) / `GET /approvals/{id}` (single row; the original requester
    or a same-tenant Finance approver) / `POST /approvals/{id}/decide {decision: "approve"|"reject"}` are plain
-   Bearer-JWT endpoints on this same FastAPI app, not agent tools -- a human (today: Finance, this POC's one
-   business role) drives them directly, not the model. The decide endpoint takes no tool or args, only a decision
+   Bearer-JWT endpoints on this same FastAPI app, not agent tools -- a human (today: Finance, the only
+   business role currently modeled) drives them directly, not the model. The decide endpoint takes no tool or args, only a decision
    on an id -- **approval integrity**: it can never run a different action than the one a human actually saw.
 3. A reject is terminal. An approve re-asks OPA -- a separate `approval_execute` stage (role/tool/tenant/risk, fresh,
    not just "the row says pending"; see [opa.md](opa.md#risk-classification)) -- and only on that fresh allow calls
@@ -180,7 +180,7 @@ for each one's endpoint and return shape). All `action_risk=low` (Phase 1 autono
 Controlled actions (implementation plan Phase 14): graduated autonomy per Phase 9 -- `restart_worker`/
 `clear_failed_job`/`block_ip_temporarily` are `medium`, the rest `low`; OPA's tool stage auto-executes both tiers
 once role/tenant checks pass, same as `find_donor`/`save_task_state` above, no `requires_approval` branching like
-`resend_receipt`. No worker fleet, job queue, WAF or pager exists in this POC; each backend call is a no-op
+`resend_receipt`. No worker fleet, job queue, WAF or pager exists yet; each backend call is a no-op
 status-flip audited to `remediation_actions`, except `create_incident`, which writes a real `incidents` row:
 
 | Tool | Shape | Backend | `action_risk` |

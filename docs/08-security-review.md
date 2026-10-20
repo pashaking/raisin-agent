@@ -1,6 +1,6 @@
 # 08 — Security Review (Phase 16)
 
-Status: POC-level review against the OWASP GenAI / Agentic Top 10, written before any production rollout
+Status: pre-production review against the OWASP GenAI / Agentic Top 10, written before any production rollout
 (docs/raisin_agent_implementation_plan.md Phase 17). This is a code-review + eval-coverage pass, not a
 penetration test — no external red team, no fuzzing campaign, no load test.
 
@@ -205,7 +205,7 @@ task needs.
 **Controls**:
 - Graduated autonomy by risk (Phase 9/14): low-risk tools execute automatically; high/critical-risk tools
   always stop at `requires_approval`, with no model-controlled override.
-- Controlled action tools (`restart_worker`, `block_ip`, etc.) are server-side no-ops in this POC (status
+- Controlled action tools (`restart_worker`, `block_ip`, etc.) are server-side no-ops in this implementation (status
   flips only, not real infra calls) — explicitly acknowledged in `tools.py`, not hidden behind a working-looking
   interface.
 - Hard step/call/runtime/token caps (#3) bound autonomy even for allowed actions.

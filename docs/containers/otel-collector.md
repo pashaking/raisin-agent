@@ -50,7 +50,7 @@ included; correlate by `traceId`). `scripts/siem_tail.py` flattens it:
 ```bash
 python3 scripts/siem_tail.py        # dump
 python3 scripts/siem_tail.py -f     # follow
-: > observability/siem/security-events.jsonl   # reset before a clean demo
+: > observability/siem/security-events.jsonl   # reset before a clean run
 ```
 
 Spans that land here, by source: `policy.decide` with `policy.result=deny` (runtime), `raisin-api /api/*` role denies
@@ -74,7 +74,7 @@ the six clean requests (S1, S2, S5, S7, S9, S0) produced a row. Full listing in
 
 `docker compose logs otel-collector` is where exporter errors appear (Jaeger or Phoenix refusing connections, file write
 errors). A stale line from before the LLM Guard removal is still in the SIEM file (`guardrail.llm_guard.retrieved_chunk`,
-`guardrail.service=llm-guard`), which is a reminder that the file is append-only and should be truncated before a demo.
+`guardrail.service=llm-guard`), which is a reminder that the file is append-only and should be truncated before a run.
 
 ## Related
 

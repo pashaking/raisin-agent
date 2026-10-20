@@ -180,7 +180,7 @@ def part_a():
 
     # --- Phase 14: controlled actions (restart_worker/clear_failed_job/block_ip_temporarily are action_risk=medium,
     # create_incident/send_notification/collect_diagnostic_bundle are low -- OPA auto-executes both tiers, no
-    # approval branching like resend_receipt). No backing system exists in this POC; each is a no-op status-flip.
+    # approval branching like resend_receipt). No backing system exists yet; each is a no-op status-flip.
     st, b = get("/api/workers/restart", ta, body={"worker": "ingest-worker-3"})
     check("restart_worker -> 200 restarted", st == 200 and b.get("restarted") is True and b.get("worker") == "ingest-worker-3", f"{st} {b}")
     st, b = get("/api/jobs/clear", ta, body={"job_id": "job-42"})
@@ -395,7 +395,7 @@ PANEL_ON = runtime_flags().get("debug_panel") == "on"
 def part_envelope():
     """F5/F6: what an end user gets back. DEBUG_PANEL=off -> answer + trace_id only, 4xx -> error/stage/trace_id only; the
     foreign-id and missing-id responses are indistinguishable (no existence oracle) and no control-plane internals leak.
-    DEBUG_PANEL=on (console demo) -> full envelope, and the same oracle check still holds on the model-facing text."""
+    DEBUG_PANEL=on (console UI) -> full envelope, and the same oracle check still holds on the model-facing text."""
     print(f"runtime debug_panel={'on' if PANEL_ON else 'off'}")
     foreign = ask("Show me donation 873928 and its transactions.", FIN_B)[1]     # tenant A's id, asked by tenant B
     missing = ask("Show me donation 4711 and its transactions.", FIN_B)[1]       # does not exist
@@ -407,9 +407,9 @@ def part_envelope():
         d = blocked.get("detail", {}) if isinstance(blocked, dict) else {}
         check("envelope off: 4xx body carries error/stage/trace_id only (no scores, rails, classifier)", isinstance(d, dict) and set(d) <= {"error", "stage", "trace_id", "reason", "verdict", "service"} and "classifier" not in json.dumps(blocked) and "risk_score" not in json.dumps(blocked), json.dumps(blocked)[:300])
     else:
-        check("envelope on: full control-plane panel present (console demo mode)", {"policy", "tool_calls", "guardrails"} <= set(foreign), json.dumps(sorted(foreign)))
+        check("envelope on: full control-plane panel present (console UI mode)", {"policy", "tool_calls", "guardrails"} <= set(foreign), json.dumps(sorted(foreign)))
     for name, body in (("foreign", foreign), ("missing", missing)):
-        # panel off: nothing in the body may distinguish the cases; panel on (console demo): the deny is shown on purpose,
+        # panel off: nothing in the body may distinguish the cases; panel on (console UI): the deny is shown on purpose,
         # so only the model-facing wording is checked
         leak = ("tenant_mismatch" in json.dumps(body)) if not PANEL_ON else False
         check(f"no oracle: {name}-id answer never says authorized{'' if PANEL_ON else ' and body never says tenant_mismatch'}",

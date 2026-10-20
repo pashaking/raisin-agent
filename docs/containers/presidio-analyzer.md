@@ -1,6 +1,6 @@
 # presidio-analyzer
 
-Microsoft Presidio's analyzer: finds PII spans in text and scores them. In the POC it runs twice per request, on the
+Microsoft Presidio's analyzer: finds PII spans in text and scores them. In this system it runs twice per request, on the
 user's input (to create placeholders before the model sees anything) and on the model's output (to block anything that
 looks like an email, phone number or card number that was not one of this request's placeholders). Called by the
 [agent-runtime](agent-runtime.md), not by the guardrails service.

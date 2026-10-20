@@ -1,6 +1,6 @@
-# Donation AI Control Plane POC: documentation
+# Donation AI Control Plane: documentation
 
-Documentation for the runnable proof of concept in `infra-designs/poc/`. The design it implements is
+Documentation for the system in `infra-designs/poc/`. The design it implements is
 `../../02_Donation_AI_Control_Plane_POC_Design.md`; the security review is `../../03_AI_Control_Plane_Security_Review.md`.
 Everything below was verified against the running stack on 2026-09-07 (all example outputs are real responses and real
 Jaeger traces, model `gpt-4o-mini`, temperature 0).
@@ -38,7 +38,7 @@ Source is the `.mmd` file in `infra-designs/diagrams/`; `.svg`, `.png` and `.exc
 | 14 | [Containers and data flow, animated](09-container-data-flow.html) (source: `docs/diagrams/container_data_flow.py`, in this repo) | architecture, containers |
 
 Earlier design-level diagrams (01 placement, 02 lifecycle, 03 RAG/tools split, 04 multi-tenant RAG, 05 data minimization,
-06 learning path) describe the target architecture; 07 to 13 describe what the POC actually runs.
+06 learning path) describe the target architecture; 07 to 13 describe what the system actually runs.
 
 ## Conventions used in these pages
 

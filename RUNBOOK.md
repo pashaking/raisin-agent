@@ -229,7 +229,7 @@ The collector writes spans with `policy.result=deny` or `guardrail.verdict in (b
 ```bash
 python3 scripts/siem_tail.py        # one row per span: trace id, span name, subject, decision, events
 python3 scripts/siem_tail.py -f     # follow while you run scenarios in another terminal
-: > observability/siem/security-events.jsonl   # reset the feed before a clean demo
+: > observability/siem/security-events.jsonl   # reset the feed before a clean run
 ```
 
 ### Container logs

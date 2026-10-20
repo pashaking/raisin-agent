@@ -1,6 +1,6 @@
 # litellm
 
-The LiteLLM proxy: the routing, key, budget and telemetry half of the **AI Gateway** box. Every model call in the POC goes
+The LiteLLM proxy: the routing, key, budget and telemetry half of the **AI Gateway** box. Every model call in this system goes
 through it: the assistant's chat, the story generator, the embeddings for RAG, the NeMo judge, and the moderation call.
 That is what makes "keyed, budgeted and traced like any model call" true for the guardrails too.
 

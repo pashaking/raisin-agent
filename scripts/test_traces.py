@@ -90,7 +90,7 @@ def _runtime_flags() -> dict:
 
 def test_trace_content_minimized() -> bool:
     """F1: LLM spans must not export message bodies (user text, tenant KB chunks, tool results). input.value / output.value
-    and tool.parameters carry structure + sha256 only, unless the runtime runs with DEBUG_TRACE_CONTENT=on (local demo)."""
+    and tool.parameters carry structure + sha256 only, unless the runtime runs with DEBUG_TRACE_CONTENT=on (local development)."""
     flags = _runtime_flags()
     if flags.get("trace_content") == "on":
         print("trace content: SKIP (runtime DEBUG_TRACE_CONTENT=on)")

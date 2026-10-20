@@ -59,7 +59,7 @@ def auth_token(req: TokenReq):
 
 @app.get("/auth/users")
 def auth_users():
-    """Demo-only identity picker for the chat console (/ui). A real IdP owns this list; here it is the seeded users."""
+    """Simplified identity picker for the chat console (/ui). A real IdP owns this list; here it is the seeded users."""
     return db.query(
         "SELECT u.email, u.tenant_id, t.name AS tenant_name, u.role FROM users u "
         "JOIN tenants t ON t.id = u.tenant_id ORDER BY u.role, u.email",
@@ -279,8 +279,8 @@ def donation(donation_id: int, authorization: str | None = Header(default=None),
 
 @app.post("/api/donations/{donation_id}/resend-receipt")
 def resend_receipt(donation_id: int, authorization: str | None = Header(default=None), x_service_token: str | None = Header(default=None)):
-    """Phase 10: the one real write-ish action behind the approval workflow. No outbound email capability exists in
-    this POC (no SMTP, no mail container) so "resending" is a no-op status-flip, consistent with tax-receipt-policy.md
+    """Phase 10: the one real write-ish action behind the approval workflow. No outbound email capability exists yet
+    (no SMTP, no mail container) so "resending" is a no-op status-flip, consistent with tax-receipt-policy.md
     framing this as something "reissued by a charity administrator". Missing and foreign ids are indistinguishable."""
     claims = authorize(authorization, x_service_token, "resend_receipt")
     d = db.query("UPDATE donations SET receipt_resent_at = now() WHERE id = %s AND tenant_id = %s RETURNING id, receipt_resent_at",
@@ -557,7 +557,7 @@ def incident_history(authorization: str | None = Header(default=None), x_service
 # Graduated autonomy (Phase 9): restart_worker/clear_failed_job/block_ip_temporarily are action_risk=medium,
 # create_incident/send_notification/collect_diagnostic_bundle are low -- OPA's tool stage auto-executes both tiers
 # once role/tenant checks pass (see policy/authz.rego), unlike resend_receipt/high which always needs an approval.
-# No outbound system exists in this POC (no job queue, no WAF, no pager) so each handler is a state-changing no-op --
+# No outbound system exists yet (no job queue, no WAF, no pager) so each handler is a state-changing no-op --
 # same framing resend_receipt uses -- audited in `remediation_actions` rather than silently discarded.
 def _log_action(tenant_id: str, action: str, params: dict, performed_by: str, result: dict) -> None:
     db.query("INSERT INTO remediation_actions (tenant_id, action, params, performed_by, result) VALUES (%s,%s,%s::jsonb,%s,%s::jsonb)",
@@ -570,7 +570,7 @@ class RestartWorkerReq(BaseModel):
 
 @app.post("/api/workers/restart")
 def restart_worker(req: RestartWorkerReq, authorization: str | None = Header(default=None), x_service_token: str | None = Header(default=None)):
-    """restart_worker (Phase 14): no real worker fleet in this POC -- a no-op status-flip, consistent with
+    """restart_worker (Phase 14): no real worker fleet yet -- a no-op status-flip, consistent with
     resend_receipt. Logged to remediation_actions for audit."""
     claims = authorize(authorization, x_service_token, "restart_worker")
     result = {"worker": req.worker, "restarted": True, "restarted_at": datetime.now(timezone.utc).isoformat()}
@@ -584,7 +584,7 @@ class ClearFailedJobReq(BaseModel):
 
 @app.post("/api/jobs/clear")
 def clear_failed_job(req: ClearFailedJobReq, authorization: str | None = Header(default=None), x_service_token: str | None = Header(default=None)):
-    """clear_failed_job (Phase 14): no real job queue in this POC -- a no-op status-flip."""
+    """clear_failed_job (Phase 14): no real job queue yet -- a no-op status-flip."""
     claims = authorize(authorization, x_service_token, "clear_failed_job")
     result = {"job_id": req.job_id, "cleared": True, "cleared_at": datetime.now(timezone.utc).isoformat()}
     _log_action(claims["tenant_id"], "clear_failed_job", {"job_id": req.job_id}, claims["sub"], result)
@@ -598,8 +598,8 @@ class BlockIpReq(BaseModel):
 
 @app.post("/api/security/block-ip")
 def block_ip_temporarily(req: BlockIpReq, authorization: str | None = Header(default=None), x_service_token: str | None = Header(default=None)):
-    """block_ip_temporarily (Phase 14): the plan's card-testing mitigation example (Phase 5/9/10) -- no real WAF in
-    this POC, so this is a no-op status-flip, time-bounded by construction (duration_minutes, not permanent)."""
+    """block_ip_temporarily (Phase 14): the plan's card-testing mitigation example (Phase 5/9/10) -- no real WAF
+    exists yet, so this is a no-op status-flip, time-bounded by construction (duration_minutes, not permanent)."""
     claims = authorize(authorization, x_service_token, "block_ip_temporarily")
     try:
         ipaddress.ip_address(req.ip)
@@ -647,7 +647,7 @@ class SendNotificationReq(BaseModel):
 
 @app.post("/api/notifications")
 def send_notification(req: SendNotificationReq, authorization: str | None = Header(default=None), x_service_token: str | None = Header(default=None)):
-    """send_notification (Phase 14): no SMTP/Slack/pager integration in this POC -- a no-op send, logged for audit
+    """send_notification (Phase 14): no SMTP/Slack/pager integration yet -- a no-op send, logged for audit
     (what the agent told a human, and when)."""
     claims = authorize(authorization, x_service_token, "send_notification")
     if req.channel not in NOTIFICATION_CHANNELS:
@@ -668,7 +668,7 @@ class CollectDiagnosticsReq(BaseModel):
 def collect_diagnostic_bundle(req: CollectDiagnosticsReq, authorization: str | None = Header(default=None), x_service_token: str | None = Header(default=None)):
     """collect_diagnostic_bundle (Phase 14): summarizes the same tenant-scoped application_errors/incidents tables
     get_application_errors/get_incident_history read, as a single bundle an agent can attach to an incident or hand
-    to on-call -- no log-aggregator export exists in this POC, so the "bundle" is this summary plus an id."""
+    to on-call -- no log-aggregator export exists yet, so the "bundle" is this summary plus an id."""
     claims = authorize(authorization, x_service_token, "collect_diagnostic_bundle")
     start, end = _parse_time(req.start_time), _parse_time(req.end_time)
     err_sql = "SELECT COUNT(*) AS n FROM application_errors WHERE tenant_id = %s"
@@ -822,7 +822,7 @@ def campaign_tenant(campaign_id: int, x_service_token: str | None = Header(defau
     return _pip("campaigns", campaign_id, x_service_token)
 
 
-# ---------- demo chat console (static, same origin) ----------
+# ---------- chat console (static, same origin) ----------
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 
 

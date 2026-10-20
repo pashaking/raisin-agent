@@ -1,6 +1,6 @@
 # presidio-anonymizer
 
-Microsoft Presidio's anonymizer: given text and analyzer results, replaces the spans. In the POC it has exactly one job,
+Microsoft Presidio's anonymizer: given text and analyzer results, replaces the spans. In this system it has exactly one job,
 on exactly one path: Donor-role output. Donors never get placeholders restored (they should not receive names from the
 system of record), so instead of restoring, the runtime sends the draft and any `PERSON` hits here and gets back text with
 `<REDACTED>` in their place.

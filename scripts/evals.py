@@ -2,7 +2,7 @@
 """Agent evaluation suite (Phase 12): a named scenario dataset against the running stack, plus the plan's
 own metrics computed from the debug panel.
 
-Maps the plan's 13 scenario categories (docs/raisin_agent_implementation_plan.md Phase 12) onto this POC's
+Maps the plan's 13 scenario categories (docs/raisin_agent_implementation_plan.md Phase 12) onto this system's
 actual domain (donations/donors/transactions, not campaigns/gateways): a category with no matching capability
 here (e.g. "gateway outage") is reframed as the closest in-domain equivalent rather than skipped, noted per
 scenario in `plan_category`. A 14th scenario, `approval_required_action`, was added once Phase 10 made a human
@@ -86,7 +86,7 @@ def run_scenario(sc: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------------------
-# Scenario dataset. Each scenario names the plan's own category (Phase 12) and, where this POC's domain has
+# Scenario dataset. Each scenario names the plan's own category (Phase 12) and, where this system's domain has
 # no literal match, the adapted equivalent actually exercised.
 SCENARIOS = [
     {

@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS donations (
   id BIGINT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), donor_id INT REFERENCES donors(id),
   amount NUMERIC(12,2) NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL, receipt_resent_at TIMESTAMPTZ);
 -- migration for a table created before receipt_resent_at existed (Phase 10: resend_receipt is a no-op status-flip --
--- this POC has no outbound email capability at all, see docker-compose.yml)
+-- no outbound email capability exists yet, see docker-compose.yml)
 ALTER TABLE donations ADD COLUMN IF NOT EXISTS receipt_resent_at TIMESTAMPTZ;
 -- public /donate never accepts a client-chosen id (CSO F2); ids come from this sequence, fixtures stay below 900000
 CREATE SEQUENCE IF NOT EXISTS donation_id_seq START 900000;

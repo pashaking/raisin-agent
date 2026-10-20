@@ -93,7 +93,7 @@ now in Finance's role list specifically so this path is reachable for real, not 
 | `get_donor_profile`, `find_donor` | medium | identify one donor, even though returned fields are minimized |
 | `save_task_state` | medium | a write, even though fully self-scoped (own tenant/user/session) with no external side effect |
 | `list_campaigns`, `get_campaign`, `get_campaign_statistics`, `get_transaction`, `search_transactions`, `get_transaction_statistics`, `compare_transaction_periods`, `get_decline_statistics`, `get_payment_gateway_statistics`, `get_fraud_signals`, `get_application_errors`, `get_incident_history` | low | read-only (Phase 3 investigation set) |
-| `create_incident`, `send_notification`, `collect_diagnostic_bundle` | low | scoped to the caller's own charity; no backing system in this POC (Phase 14) |
+| `create_incident`, `send_notification`, `collect_diagnostic_bundle` | low | scoped to the caller's own charity; no backing system yet (Phase 14) |
 | `restart_worker`, `clear_failed_job`, `block_ip_temporarily` | medium | a real, scoped, reversible/time-bounded side effect, same tier as `save_task_state` (Phase 14) |
 | `resend_receipt` | high | a real side effect (not a read); gated by approval, not withheld outright |
 

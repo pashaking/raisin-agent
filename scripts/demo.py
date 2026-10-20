@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the demo scenarios (0-9) against the running stack and print trace links.
+"""Run the scripted scenarios (0-9) against the running stack and print trace links.
 
 usage: demo.py [scenario numbers...]   (default: all)
 """

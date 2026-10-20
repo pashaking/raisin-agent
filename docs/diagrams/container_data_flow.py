@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/09-container-data-flow.html: animated container + data-flow diagram of the POC.
+"""Generate docs/09-container-data-flow.html: animated container + data-flow diagram of the system.
 
 Run from anywhere:  python3 docs/diagrams/container_data_flow.py
 Edit the B (boxes) and E (edges) tables below, re-run, commit both files. No dependencies beyond Python 3.
@@ -371,7 +371,7 @@ figcaption {{ font-size: 13px; color: var(--muted); margin-top: 10px; max-width:
 
 <div class="wrap">
 <header>
-  <h1>Raisin agent POC: containers and data flow</h1>
+  <h1>Raisin agent: containers and data flow</h1>
   <p>Every box is a service in <code>docker-compose.yml</code>. Moving dashes travel in the direction the data goes; green dashes are the response coming back. Pick a scenario to show only the containers it touches, toggle flows, click a box for its purpose and connections.</p>
 </header>
 
@@ -428,7 +428,7 @@ figcaption {{ font-size: 13px; color: var(--muted); margin-top: 10px; max-width:
   </dl>
   <a class="bl" id="b-doc" href="#" target="_blank" rel="noopener">Container page</a>
 </div>
-<svg id="dia" viewBox="0 0 {W} {H}" role="img" aria-label="Containers of the raisin-agent POC with arrows showing which service calls which, in the direction data flows: browser to raisin-api to agent-runtime, which calls OPA, guardrails, Presidio, LiteLLM and Postgres; LiteLLM calls providers; every service exports traces to the OpenTelemetry collector, which fans out to Jaeger, Phoenix and a SIEM file.">
+<svg id="dia" viewBox="0 0 {W} {H}" role="img" aria-label="Containers of the raisin-agent system with arrows showing which service calls which, in the direction data flows: browser to raisin-api to agent-runtime, which calls OPA, guardrails, Presidio, LiteLLM and Postgres; LiteLLM calls providers; every service exports traces to the OpenTelemetry collector, which fans out to Jaeger, Phoenix and a SIEM file.">
 <defs>
   <marker id="head-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--flow)"/></marker>
   <marker id="head-ctrl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--ctrl)"/></marker>

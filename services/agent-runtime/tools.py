@@ -182,8 +182,8 @@ SCHEMAS = {
             "end_time": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 50}}}),
     # Controlled actions (plan Phase 14): graduated autonomy (Phase 9) -- restart_worker/clear_failed_job/
     # block_ip_temporarily are action_risk=medium, the other three are low; OPA's tool stage auto-executes both
-    # tiers (unlike resend_receipt/high, which always requires_approval). No outbound system backs any of them in
-    # this POC -- each is a no-op status-flip, audited server-side, same framing resend_receipt uses.
+    # tiers (unlike resend_receipt/high, which always requires_approval). No outbound system backs any of them
+    # yet -- each is a no-op status-flip, audited server-side, same framing resend_receipt uses.
     "restart_worker": _fn(
         "restart_worker",
         "Restart a stuck or crash-looping worker process for the caller's charity, by worker name (e.g. "

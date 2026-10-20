@@ -1,4 +1,4 @@
-"""Seed job. Each unit runs under its own root span so seed traces never mix with demo traces.
+"""Seed job. Each unit runs under its own root span so seed traces never mix with scenario traces.
 
   python seed.py all        schema -> keys -> index -> registry
   python seed.py registry   regenerate policy/data/registry.json from ai_registry and push to OPA
@@ -112,7 +112,7 @@ def keys():
                     continue
                 body = {"key": os.environ[env], "key_alias": alias, "max_budget": budget, "budget_duration": duration,
                         "models": F.KEY_MODELS.get(alias, ["gpt-4o-mini", "claude-sonnet", "text-embedding-3-small"]),
-                        "metadata": {"tenant": alias.split("-")[0] if alias.startswith("tenant") else "platform", "poc": "aicp"}}
+                        "metadata": {"tenant": alias.split("-")[0] if alias.startswith("tenant") else "platform", "project": "aicp"}}
                 r = c.post(f"{LITELLM}/key/generate", json=body)
                 if r.status_code >= 400:
                     print(f"seed.keys {alias}: {r.status_code} {r.text[:200]}", file=sys.stderr)

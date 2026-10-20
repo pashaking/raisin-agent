@@ -82,7 +82,7 @@ TRANSACTIONS = [  # (id, donation_id, tenant, amount, currency, result, decline_
 # Transaction-investigation tool set (plan Phase 3, literal tool names): campaigns + gateway/fraud/error/incident
 # telemetry, scoped by tenant like everything else. Kept separate from the donor/donation fixtures above so those
 # rows are untouched; occurred_at/started_at are relative to seed time (minutes/hours ago) so "last_hour" vs
-# "previous_hour" demo queries show a real pattern regardless of when `make seed` runs.
+# "previous_hour" queries show a real pattern regardless of when `make seed` runs.
 CAMPAIGNS = [  # (id, tenant, name, status, goal_amount, campaign_code, start_date, end_date)
     (1, "tenant-a", "Campaign ABC", "active", 20000.00, "JACK-ABC-2026", "2026-01-01", "2026-12-31"),
     (2, "tenant-c", "PMCF Annual Gala", "active", 50000.00, "PMCF-GALA-2026", "2026-03-01", "2026-03-31"),

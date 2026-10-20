@@ -1,6 +1,6 @@
-# ai-control-plane-poc
+# Donation AI Control Plane
 
-Runnable proof of concept of the donation-platform AI control plane described in
+The donation-platform AI control plane described in
 `../02_Donation_AI_Control_Plane_POC_Design.md` (design) and drawn in
 `../diagrams/01-ai-control-plane-placement.mmd` (topology). Real gateway (LiteLLM), real policy
 engine (OPA), real guardrails (NVIDIA NeMo Guardrails self-check rails + prompt-injection classifier + OpenAI moderation, Presidio for PII), real providers (OpenAI, Anthropic via OpenRouter),
@@ -16,7 +16,7 @@ real RAG (pgvector), one trace per request in Jaeger and Phoenix.
 | 4. Guardrails: `guardrails` orchestrator → `nemo-guardrails` (self-check input/output rails) + injection classifier + output moderation; Presidio analyzer/anonymizer; placeholders; fail-closed | done (LLM Guard replaced 2026-09-06, NeMo added same day) |
 | 5. RAG: pgvector, tenant/classification filter, poisoned doc | done |
 | 6. `make demo` scenarios 0–9, `make test` (PCI scope, PII canary, fail-closed, data-tool API) | done, all PASS |
-| 7. Provider validation: full demo on `gpt-4o-mini` and on `claude-sonnet` (OpenRouter) | done 2026-09-06, both PASS |
+| 7. Provider validation: full run on `gpt-4o-mini` and on `claude-sonnet` (OpenRouter) | done 2026-09-06, both PASS |
 | 8. Chat console `/ui` on raisin-api (user picker, assistant/story, model override, control-plane panel per reply) | done 2026-09-06 |
 | 9. Data tools: 6 read-only donation / transaction / donor tools behind OPA + raisin-api, placeholder-resolved arguments | done 2026-09-07 |
 | 10. Security remediation (CSO re-audit 2026-09-07): F12 role gate + service token on `/api/*`, F1 trace content minimized, F3 OPA token auth + no host port, F2 `/donate` integrity, F5/F6 response envelope behind `DEBUG_PANEL`; `opa test` 22/22, `make test-tools` all PASS | done 2026-09-07 |
@@ -48,7 +48,7 @@ Known limitations (honest, on purpose):
   the trace also shows the tool-stage deny and the output block.
 - **OpenRouter.** The Finance and Participant default model is `claude-sonnet`, routed as
   `openrouter/anthropic/claude-sonnet-4.5` with `OPENROUTER_API_KEY`. If the OpenRouter account has no credit the
-  provider returns 402 and the runtime answers 502 `gateway_error` (visible in the trace). Run the demo with
+  provider returns 402 and the runtime answers 502 `gateway_error` (visible in the trace). Run the scenarios with
   `DEMO_MODEL=gpt-4o-mini` in the meantime; policy still validates the override against the role's model list.
   Validated end to end on `claude-sonnet` 2026-09-06 once the account was funded.
 - **Presidio and synthetic data.** Presidio ignores emails on non-existent TLDs (`.test`) and scores phone numbers
@@ -77,11 +77,11 @@ Closed in this round (each with a test in `scripts/test_tools.py` or `scripts/te
   and never overwrites an existing donor's contact fields.
 - **F5/F6 (MEDIUM)** `DEBUG_PANEL=off` (default) returns `answer` + `trace_id` only and 4xx bodies without scores or rail
   names; every by-id tool (including `get_transaction_analysis`) returns a uniform `not_found`, so a foreign id and a missing
-  id are indistinguishable in the response and in the answer. `DEBUG_PANEL=on` (set in `.env` for the console demo) restores
+  id are indistinguishable in the response and in the answer. `DEBUG_PANEL=on` (set in `.env` for the console UI) restores
   the control-plane panel.
 
 Still open: F4 (shared `poc` DB role, no RLS), F7 (guardrails auth fail-open when token empty; host ports), F8 (classifier
-truncation), F9 (prompts approved globally), F10 (identity stand-in, POC-known), F11 (`.env` values equal to
+truncation), F9 (prompts approved globally), F10 (identity stand-in, known limitation), F11 (`.env` values equal to
 `.env.example`), F13 (no lockfile / hash pinning; `presidio:latest`).
 
 ## Data tools (donations, transactions, donors)
@@ -121,7 +121,7 @@ Design points worth showing:
 
 `docs/README.md` is the index: a three-command tutorial, architecture explanation, hop-by-hop request lifecycle, worked
 success and failure paths with real responses and Jaeger span trees (2026-09-07), an observability reference, and one page per
-container (`docs/containers/`). Diagrams 07 to 13 in `../diagrams/` describe what the POC actually runs.
+container (`docs/containers/`). Diagrams 07 to 13 in `../diagrams/` describe what the system actually runs.
 
 ### Interactive data-flow diagram
 
@@ -156,9 +156,9 @@ make demo S="1 3"                # subset
 UIs: Jaeger http://localhost:16686 · Phoenix http://localhost:16006 · LiteLLM http://localhost:14000 ·
 raisin-api http://localhost:18080/docs · OPA is internal only (`make opa-query`, `make opa-data`)
 
-Demo switches in `.env` (both default off in code and compose): `DEBUG_PANEL=on` shows policy decisions, tool calls and
+Debug switches in `.env` (both default off in code and compose): `DEBUG_PANEL=on` shows policy decisions, tool calls and
 guardrail verdicts in every reply (the console needs it); `DEBUG_TRACE_CONTENT=on` puts full prompts and tool results into
-LLM spans for Phoenix playback. Keep both off anywhere but a laptop.
+LLM spans for Phoenix playback. Keep both off outside local development.
 
 ## Scenarios
 

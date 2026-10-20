@@ -29,8 +29,8 @@ the AI registry table). It is the only service that talks to the `raisin` databa
 
 | Endpoint | Auth | Behaviour |
 |---|---|---|
-| `POST /auth/token {user}` | none (demo) | looks the email up in `users`, mints RS256 JWT: `iss=raisin-api`, `aud=aicp`, `sub=email`, `tenant_id`, `role`, `exp=+900s`, `jti` |
-| `GET /auth/users` | none (demo) | seeded users for the console's identity picker |
+| `POST /auth/token {user}` | none (identity stand-in) | looks the email up in `users`, mints RS256 JWT: `iss=raisin-api`, `aud=aicp`, `sub=email`, `tenant_id`, `role`, `exp=+900s`, `jti` |
+| `GET /auth/users` | none (identity stand-in) | seeded users for the console's identity picker |
 | `GET /.well-known/jwks.json` | none | public key set the runtime verifies against |
 
 ### Payment path
@@ -61,7 +61,7 @@ the JWT tenant in SQL. Four checks; OPA in the runtime is a fifth, independent o
 | `GET /api/donors/{id}/profile` | `get_donor_profile` | same summary shape |
 | `GET /api/summary` | `get_tenant_donation_summary` | counts, totals, `decline_categories`; pending donations excluded |
 | `GET /api/me/donations` | `get_my_donations` | donations joined on `donors.email = JWT sub` within the JWT tenant |
-| `POST /api/donations/{id}/resend-receipt` | `resend_receipt` | `{donation_id, receipt_resent_at}`; no-op status-flip (`UPDATE ... SET receipt_resent_at = now()`) -- no outbound email capability exists anywhere in this POC; 404 `not found` for missing/foreign ids. Called only from `tools.execute_approved`, after a human approval (Phase 10), never from the normal tool-call path -- OPA's tool stage denies `resend_receipt` with `requires_approval` before this is ever reached that way |
+| `POST /api/donations/{id}/resend-receipt` | `resend_receipt` | `{donation_id, receipt_resent_at}`; no-op status-flip (`UPDATE ... SET receipt_resent_at = now()`) -- no outbound email capability exists anywhere in this system; 404 `not found` for missing/foreign ids. Called only from `tools.execute_approved`, after a human approval (Phase 10), never from the normal tool-call path -- OPA's tool stage denies `resend_receipt` with `requires_approval` before this is ever reached that way |
 
 Transaction-investigation tool set (implementation plan Phase 3, literal plan tool names). `campaigns`, `application_errors`
 and `incidents` are tenant-scoped, seed-owned tables (`services/seed/fixtures.py` `CAMPAIGNS`/`CAMPAIGN_TRANSACTIONS`/
@@ -86,7 +86,7 @@ and `incidents` are tenant-scoped, seed-owned tables (`services/seed/fixtures.py
 Controlled actions (implementation plan Phase 14). `restart_worker`/`clear_failed_job`/`block_ip_temporarily` are
 `action_risk=medium`, the other three `low`; OPA's tool stage auto-executes both tiers like any other tool once
 role/tenant checks pass (graduated autonomy, Phase 9) -- unlike `resend_receipt`/`high`, none of these ever reaches
-the approval workflow. No worker fleet, job queue, WAF or pager exists in this POC, so each is a no-op status-flip,
+the approval workflow. No worker fleet, job queue, WAF or pager exists yet, so each is a no-op status-flip,
 audited to `remediation_actions` (`tenant_id, action, params, performed_by, result, created_at`); `create_incident`
 is the one exception with real state -- it inserts into the same `incidents` table `get_incident_history` reads.
 `transactions.ip_address` (nullable, only set on campaign 2's card-testing cluster fixture) is what

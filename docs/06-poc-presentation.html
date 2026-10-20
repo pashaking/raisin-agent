@@ -109,7 +109,7 @@ figcaption{font-size:13px;color:var(--muted);max-width:80ch}
 </style>
 
 <nav aria-label="Slides"><div class="inner">
-  <span class="brand">AI Control Plane POC</span>
+  <span class="brand">AI Control Plane</span>
   <a href="#s1">1 Title</a><a href="#s2">2 Problem</a><a href="#s3">3 Design</a><a href="#s4">4 Architecture</a><a href="#s5">5 Infra</a><a href="#s6">6 Flow</a><a href="#s7">7 Tools</a><a href="#s8">8 Guardrails</a><a href="#s9">9 Story · Pay</a><a href="#s10">10 Failures</a><a href="#s11">11 Observability</a><a href="#s12">12 Evidence</a><a href="#s13">13 Production</a><a href="#s14">14 Roadmap</a>
 </div></nav>
 
@@ -117,7 +117,7 @@ figcaption{font-size:13px;color:var(--muted);max-width:80ch}
 
 <!-- 1 TITLE -->
 <section class="slide" id="s1">
-  <div class="eyebrow"><b>01</b> Donation AI Control Plane · proof of concept</div>
+  <div class="eyebrow"><b>01</b> Donation AI Control Plane</div>
   <div class="head">
     <h1>Can an LLM assistant read donation data without ever becoming the thing that decides what it may see?</h1>
     <p class="lead">A runnable, 13-container control plane for a regulated multi-tenant donation platform. Real gateway (LiteLLM), real policy engine (OPA), real guardrails (NeMo Guardrails, an injection classifier, OpenAI moderation, Presidio), real providers, real RAG, one trace per request. Every decision that matters is made outside the model and shows up as a span.</p>
@@ -139,7 +139,7 @@ figcaption{font-size:13px;color:var(--muted);max-width:80ch}
       <dl class="kv">
         <dt>Containers</dt><dd>13 services + <code>seed</code> and <code>gate</code> profiles (Docker Compose)</dd>
         <dt>Tests</dt><dd><code>opa test</code> 22/22 · <code>make test</code> PCI scope, PII canary, gateway content, fail-closed · <code>make test-tools</code> 60/60</dd>
-        <dt>Providers</dt><dd>OpenAI <code>gpt-4o-mini</code> and Anthropic <code>claude-sonnet</code> via OpenRouter, both full demo PASS</dd>
+        <dt>Providers</dt><dd>OpenAI <code>gpt-4o-mini</code> and Anthropic <code>claude-sonnet</code> via OpenRouter, both full validation run PASS</dd>
         <dt>Tenants</dt><dd>tenant-a, tenant-b, tenant-c (PMCF), platform · roles Finance, Donor, Participant</dd>
         <dt>Sources</dt><dd><code>infra-designs/poc/docs/</code> 00–05, <code>containers/</code>, design 02, security review 03</dd>
       </dl>
@@ -817,7 +817,7 @@ make test-fail-closed    # stop each control, assert refusal</code></pre>
         <li><strong><code>make test</code></strong> on real traces: PCI scope (no trace has both payment and <code>gen_ai.*</code>), PII canary (canary email/phone in zero spans), trace content (LLM spans carry hashes unless flagged), gateway content (no message-shaped attribute on any span of any service), data-tool API (service token, role, id assignment, 422/404).</li>
         <li><strong><code>make test-tools</code></strong> 60/60: eight tools end to end, NeMo rail regression list, response envelope minimization, runtime tool loop.</li>
         <li><strong><code>make test-fail-closed</code></strong>: stop opa, guardrails, nemo-guardrails, presidio-analyzer, presidio-anonymizer one at a time; assert the refusal.</li>
-        <li><strong>Provider validation</strong>: full demo (scenarios 0–9) on <code>gpt-4o-mini</code> and on <code>claude-sonnet</code> via OpenRouter, both PASS.</li>
+        <li><strong>Provider validation</strong>: full run (scenarios 0–9) on <code>gpt-4o-mini</code> and on <code>claude-sonnet</code> via OpenRouter, both PASS.</li>
       </ul>
     </div>
     <div>
@@ -835,7 +835,7 @@ make test-fail-closed    # stop each control, assert refusal</code></pre>
           <tr><td>F7 guardrails auth fail-open when token empty; host ports</td><td><span class="pill p-amber">open</span></td></tr>
           <tr><td>F8 classifier truncation at 512 tokens</td><td><span class="pill p-amber">open</span></td></tr>
           <tr><td>F9 prompts approved globally, not per tenant</td><td><span class="pill p-amber">open</span></td></tr>
-          <tr><td>F10 identity stand-in</td><td><span class="pill p-amber">open</span> POC-known</td></tr>
+          <tr><td>F10 identity stand-in</td><td><span class="pill p-amber">open</span> known limitation</td></tr>
           <tr><td>F11 <code>.env</code> equals <code>.env.example</code></td><td><span class="pill p-amber">open</span></td></tr>
           <tr><td>F13 no lockfile / digest pinning; <code>presidio:latest</code></td><td><span class="pill p-amber">open</span></td></tr>
         </tbody>
@@ -849,7 +849,7 @@ make test-fail-closed    # stop each control, assert refusal</code></pre>
   <div class="eyebrow"><b>13</b> Production readiness</div>
   <div class="head">
     <h2>What is hard-coded today, and where production must load it from instead</h2>
-    <p class="lead">The POC proves the control shape. To run it for real tenants, configuration that lives in Python dicts, JSON files and <code>.env</code> has to move to systems with ownership, versioning and audit. Grouped by what has to change.</p>
+    <p class="lead">This system proves the control shape. To run it for real tenants, configuration that lives in Python dicts, JSON files and <code>.env</code> has to move to systems with ownership, versioning and audit. Grouped by what has to change.</p>
   </div>
 
   <h3>A. Values hard-coded in source that belong in a database or config service</h3>
@@ -867,7 +867,7 @@ make test-fail-closed    # stop each control, assert refusal</code></pre>
       <tr><td>Guardrail thresholds: Presidio 0.3 + per-entity {.6,.6,.4,.6}, injection 0.9, moderation 0.5, REFUSAL text</td><td class="mono">agent-runtime/guardrails.py, guardrails/app.py, .env</td><td><code>guardrail_profiles(profile_id, tenant_id|null, stage, entity_thresholds, injection_threshold, moderation_threshold, refusal_text)</code>; profile id recorded on the guardrail span.</td><td>Tuning per tenant and per stage without a deploy; the trace says which profile judged the request.</td></tr>
       <tr><td>Runtime limits: <code>POLICY_TIMEOUT_S=2</code>, <code>GUARDRAIL_TIMEOUT_S=30</code>, <code>MAX_TOOL_ROUNDS=4</code>, <code>max_tokens=600</code>, story temperature 0.7, RAG top 4, list limit 50, JWT lifetime 900 s</td><td class="mono">config.py, app.py, llm.py, tools.py, raisin-api/app.py</td><td>SSM Parameter Store (or a <code>runtime_settings</code> table) read at startup and on SIGHUP; per-prompt overrides in the prompt registry row.</td><td>Operational knobs change with an audit trail; no rebuild for a timeout.</td></tr>
       <tr><td>NeMo rails config and judge prompts as bind-mounted YAML</td><td class="mono">nemo-guardrails/config/aicp/</td><td>Versioned config artifact (S3 object with version id) baked into the task definition; version recorded on <code>guardrail.nemo</code> spans.</td><td>A rail prompt change is a release with a version, not an edit on a mount.</td></tr>
-      <tr><td><code>DECLINE_CATEGORY</code> map (51, 05, 14, 54)</td><td class="mono">raisin-api/app.py</td><td>Reference table from the payment processor's code list.</td><td>Complete list, not the four the demo needed.</td></tr>
+      <tr><td><code>DECLINE_CATEGORY</code> map (51, 05, 14, 54)</td><td class="mono">raisin-api/app.py</td><td>Reference table from the payment processor's code list.</td><td>Complete list, not the four the scenarios needed.</td></tr>
       <tr><td>Payment gateway stub (<code>tok_decline_*</code> declines)</td><td class="mono">payment-gateway/app.py</td><td>The real processor integration that Raisin already runs. The stub only exists to make the PCI boundary visible in traces.</td><td>Nothing to build; keep the trace assertion.</td></tr>
     </tbody>
   </table></div>
@@ -913,7 +913,7 @@ make test-fail-closed    # stop each control, assert refusal</code></pre>
 <section class="slide" id="s14">
   <div class="eyebrow"><b>14</b> Roadmap</div>
   <div class="head">
-    <h2>What the POC proves, and the order to productionize it</h2>
+    <h2>What this system proves, and the order to productionize it</h2>
   </div>
   <div class="cols">
     <div>

@@ -1,6 +1,6 @@
-# Architecture: why the POC is shaped this way
+# Architecture: why the system is shaped this way
 
-The POC answers one question for a regulated, multi-tenant donation platform: **can an LLM assistant read donation, transaction
+This system answers one question for a regulated, multi-tenant donation platform: **can an LLM assistant read donation, transaction
 and donor data on behalf of a charity administrator without the model ever becoming the thing that decides what it may see?**
 The design puts every decision that matters (which model, which tools, which tenant's rows, whether text is safe) in
 components the model does not control, and makes each decision visible as a span.
@@ -30,7 +30,7 @@ payment path. Without a control plane, the usual failure modes are:
 ## The approach
 
 Seven boxes from the design (diagram 01) map onto thirteen containers. The mapping is deliberate: each box has a real
-product behind it, not a stub, so the POC exercises real failure modes (model download, judge latency, provider 402).
+product behind it, not a stub, so the system exercises real failure modes (model download, judge latency, provider 402).
 
 | Design box | Container(s) | What it decides |
 |---|---|---|
@@ -80,8 +80,8 @@ is a deny.
 
 - **LLM-judged rails cost latency and are not deterministic.** Each NeMo self-check is a `gpt-4o-mini` call (~0.5 to 4 s
   in the traces captured). An assistant question with one RAG tool call makes about six judge calls. The classifier and
-  moderation layers are the deterministic floor; NeMo is the layer that understands intent. The trade was accepted for the
-  POC because it makes the guardrails explainable (`nemo:self check input`) and swappable (prompts are a bind-mounted YAML).
+  moderation layers are the deterministic floor; NeMo is the layer that understands intent. The trade was accepted
+  because it makes the guardrails explainable (`nemo:self check input`) and swappable (prompts are a bind-mounted YAML).
 - **The injection classifier flags procedural documents.** The fallback model (`protectai/deberta-v3-base-prompt-injection-v2`,
   used because the gated Prompt Guard 2 needs `HF_TOKEN`) scores imperative runbook sentences as injections. The design
   response was to make the retrieved-chunk verdict `flagged` rather than `dropped`: the chunk still reaches the model, the
@@ -92,7 +92,7 @@ is a deny.
   about 700 lines of Python and is the piece that would be rewritten for ECS. Approach C in the design (gateway-centric) was
   rejected for that reason.
 - **`raisin-api` plays three roles.** Identity provider, application API and system of record are one FastAPI process because
-  the POC needs them to exist, not to be separately deployable. In production Entra ID replaces the identity route (the runtime
+  the system needs them to exist, not to be separately deployable. In production Entra ID replaces the identity route (the runtime
   already verifies via JWKS, so Dex or Entra is a URL change).
 - **No row-level security in Postgres.** A single `poc` role owns all three databases. Tenant isolation is enforced in
   application SQL (`WHERE tenant_id = %s`) and in OPA. This is open finding F4 in the security review.

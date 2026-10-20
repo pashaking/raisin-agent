@@ -21,7 +21,7 @@ for RAG plus LiteLLM's key and spend store.
 | `tenants(id, name)` | `tenant-a`, `tenant-b`, `tenant-c`, `platform` |
 | `users(email, tenant_id, role)` | the six personas; source of JWT claims |
 | `donors(id serial, tenant_id, email, phone, name)` unique `(tenant_id, email)` | PII lives here and nowhere else |
-| `donations(id bigint, tenant_id, donor_id, amount, currency, status, receipt_resent_at)` | fixtures 873901..873928 (A), 991201..991204 (B), 12345 + 774101..774111 (C); `receipt_resent_at` is Phase 10's one real write -- a no-op status-flip, since this POC has no outbound email capability anywhere |
+| `donations(id bigint, tenant_id, donor_id, amount, currency, status, receipt_resent_at)` | fixtures 873901..873928 (A), 991201..991204 (B), 12345 + 774101..774111 (C); `receipt_resent_at` is Phase 10's one real write -- a no-op status-flip, since this system has no outbound email capability anywhere |
 | `donation_id_seq` start 900000 | ids for public `/donate` |
 | `transactions(id, donation_id, tenant_id, amount, currency, result, decline_code, fraud_score, campaign_id, gateway, occurred_at, ip_address)` | one per donation in fixtures, plus the campaign-scoped set (Phase 3); `ip_address` (nullable) is only set on campaign 2's card-testing cluster -- what `block_ip_temporarily` acts on (Phase 14) |
 | `ai_registry(kind, name, owner, risk_tier, action_risk, approved, version)` | source of `policy/data/registry.json`; `action_risk` (low\|medium\|high\|critical) is tool-only (null for models/prompts) and gates OPA's tool-stage autonomy decision |

@@ -1,6 +1,6 @@
 # Request lifecycle: hop by hop
 
-Five paths exist in the POC. Two are AI paths (`/assistant`, `/story`), one is the payment path that must never touch AI
+Five paths exist in the system. Two are AI paths (`/assistant`, `/story`), one is the payment path that must never touch AI
 (`/donate`), and two are sub-flows inside the AI paths that deserve their own picture (tool authorization, guardrail
 layers). Every hop below names the span it emits so you can find it in Jaeger.
 

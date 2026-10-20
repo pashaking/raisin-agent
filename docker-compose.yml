@@ -1,6 +1,6 @@
 name: aicp
 
-# Donation AI Control Plane POC. Design: ../02_Donation_AI_Control_Plane_POC_Design.md
+# Donation AI Control Plane. Design: ../02_Donation_AI_Control_Plane_POC_Design.md
 # Host ports are offset (14xxx/15xxx/16xxx/18xxx) because another local stack binds 5432/8080/8181.
 # Diagram-01 mapping:
 #   Identity + Application APIs + Backend/RDS  -> raisin-api (+ postgres)
@@ -112,8 +112,8 @@ services:
       LITELLM_KEY_TENANT_B_FINANCE: ${LITELLM_KEY_TENANT_B_FINANCE}
       LITELLM_KEY_TENANT_C_FINANCE: ${LITELLM_KEY_TENANT_C_FINANCE}
       LITELLM_KEY_STORY_GENERATOR: ${LITELLM_KEY_STORY_GENERATOR}
-      DEBUG_TRACE_CONTENT: ${DEBUG_TRACE_CONTENT:-off}   # on = full prompts/results in spans (local demo only)
-      DEBUG_PANEL: ${DEBUG_PANEL:-off}                   # on = policy/tool/guardrail detail in API responses (console demo)
+      DEBUG_TRACE_CONTENT: ${DEBUG_TRACE_CONTENT:-off}   # on = full prompts/results in spans (local development only)
+      DEBUG_PANEL: ${DEBUG_PANEL:-off}                   # on = policy/tool/guardrail detail in API responses (console UI)
     ports: ["18090:8090"]
     depends_on:
       litellm: { condition: service_healthy }

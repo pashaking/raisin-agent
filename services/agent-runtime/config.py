@@ -11,7 +11,7 @@ RAISIN_API_URL = os.environ["RAISIN_API_URL"].rstrip("/")
 RUNTIME_SERVICE_TOKEN = os.environ["RUNTIME_SERVICE_TOKEN"]
 KB_DATABASE_URL = os.environ["KB_DATABASE_URL"]
 
-# Demo/debug switches. Both default OFF (secure default); .env turns them on for the local console and Phoenix prompt playback.
+# Debug switches. Both default OFF (secure default); .env turns them on for the local console and Phoenix prompt playback.
 #   DEBUG_TRACE_CONTENT=on  -> LLM spans carry full message bodies / tool args (otherwise: structure + sha256 only)   [CSO F1]
 #   DEBUG_PANEL=on          -> API responses carry policy decisions, tool outcomes, guardrail detail (otherwise: answer + trace_id) [CSO F5/F6]
 TRACE_CONTENT = os.environ.get("DEBUG_TRACE_CONTENT", "off").lower() == "on"

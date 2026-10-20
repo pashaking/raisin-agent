@@ -20,7 +20,7 @@ From `services/agent-runtime/llm.py`: `openinference.span.kind=LLM`, `llm.model_
 
 **Content flag.** With `DEBUG_TRACE_CONTENT=off` (default, security review F1) `input.value` is the redacted structure
 (`{"messages": 2, "roles": [...], "sha256": "...", "content": "redacted"}`), so Phoenix shows shapes and hashes, not text.
-Set `DEBUG_TRACE_CONTENT=on` in `.env` and `docker compose up -d agent-runtime` for prompt playback on a laptop demo. Then
+Set `DEBUG_TRACE_CONTENT=on` in `.env` and `docker compose up -d agent-runtime` for prompt playback during local development. Then
 scenario 5's LLM span shows `My name is <PERSON_1> ... call me at <PHONE_NUMBER_1> or email <EMAIL_ADDRESS_1>`.
 
 **LiteLLM child spans carry no content (F14, fixed 2026-09-12).** Nested under every `chat` span, LiteLLM's `litellm_request`
